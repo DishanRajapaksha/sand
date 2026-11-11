@@ -9,7 +9,7 @@ import { SCREENS, SCREEN_ORDER, drawScreen } from './screens.js';
 const params = new URLSearchParams(location.search);
 const TEST = params.has('test');
 const SUBSTEPS = 3;
-const INTRO = 2.6;
+const INTRO = 1.8;
 const UA = navigator.userAgent;
 const IOS = /iP(hone|ad|od)/.test(UA) || (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
 const ANDROID = /Android/i.test(UA);
@@ -63,9 +63,9 @@ const median = (a) => { const s = a.slice().sort((x, y) => x - y); return s[s.le
 const TWfloor = (n) => Math.floor(n / TW) * TW;
 
 function particleBudget(areaMm2) {
-  const want = areaMm2 * (Number(params.get('density')) || 12);
+  const want = areaMm2 * (Number(params.get('density')) || 8);
   const minSide = Math.min(innerWidth, innerHeight);
-  const cap = Number(params.get('n')) || (coarse ? (minSide > 600 ? 460000 : 300000) : 560000);
+  const cap = Number(params.get('n')) || (coarse ? (minSide > 600 ? 240000 : 200000) : 400000);
   return Math.max(65536, Math.min(cap, want));
 }
 

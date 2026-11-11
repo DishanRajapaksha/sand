@@ -112,9 +112,10 @@ export class SandSim {
         const r = Math.sqrt(dx * dx + dy * dy * 0.42) / 0.56;
         const n = noise(u * 3.1 * W / 60, v * 3.1 * H / 60, 5);
         const fine = noise(u * 14, v * 14 * aspect, 3);
+        const mid = noise(u * W / 9 + 40, v * H / 9 - 20, 3);
         let d = (n - 0.47) * 3.2 + (1 - r) * 1.9 - 0.25;
-        d = Math.min(1, Math.max(0, d * 2.2));
-        d = d * d * (3 - 2 * d) * (0.55 + 0.9 * fine);
+        d = Math.min(1, Math.max(0, d * 1.05));
+        d = d * d * (3 - 2 * d) * (0.45 + 0.7 * fine) * (0.35 + 1.3 * mid);
         d = d + 0.004 + 0.03 * Math.max(0, 1 - r * 0.8);
         dens[y * DW + x] = d;
         total += d;
@@ -137,7 +138,7 @@ export class SandSim {
       path[k * 2] = (cx + Math.cos(th) * rad * wob) * W;
       path[k * 2 + 1] = (cy + Math.sin(th) * rad * wob * 0.62 / aspect * 1.6) * H;
     }
-    const POUR = 2.3;
+    const POUR = 1.35;
     for (let i = 0; i < n; i++) {
       if (i >= live) { B[i * 4 + 3] = 0; A[i * 4] = -10; continue; }
       const t = rand();
@@ -157,8 +158,8 @@ export class SandSim {
           const dd = ex * ex + ey * ey;
           if (dd < bd) { bd = dd; best = k; }
         }
-        const z = 40 + rand() * 140;
-        const vz0 = -rand() * 120;
+        const z = 25 + rand() * 65;
+        const vz0 = -200 - rand() * 250;
         const tf = (vz0 + Math.sqrt(vz0 * vz0 + 2 * 9810 * z)) / 9810;
         const a = rand() * 6.283, sp = 4 + 18 * rand();
         A[i * 4 + 2] = Math.cos(a) * sp;
