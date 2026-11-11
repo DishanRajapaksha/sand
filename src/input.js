@@ -5,6 +5,7 @@ export class Input {
     this.el = el;
     this.mmPerPx = mmPerPx;
     this.pointers = new Map();
+    this.fingerRadius = 4.75;
     this.motion = null;
     this.sign = /iP(hone|ad|od)/.test(navigator.userAgent) || (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1) ? -1 : 1;
     this.toLocal = (x, y) => [x, y];
@@ -23,11 +24,7 @@ export class Input {
   bindPointers() {
     const el = this.el;
     const pos = (e) => this.toLocal(e.clientX, e.clientY).map((c) => c * this.mmPerPx);
-    const radius = (e) => {
-      const w = Math.max(e.width || 0, e.height || 0);
-      if (e.pointerType === 'touch' && w * this.mmPerPx > 3) return Math.min(7.5, Math.max(4.5, w * 0.5 * this.mmPerPx));
-      return 4.75;
-    };
+    const radius = () => this.fingerRadius;
     el.addEventListener('pointerdown', (e) => {
       e.preventDefault();
       if (this.swallow?.(e)) return;
@@ -57,7 +54,10 @@ export class Input {
   }
 
   bindKeys() {
-    window.addEventListener('keydown', (e) => this.keys.add(e.key));
+    window.addEventListener('keydown', (e) => {
+      if (e.target.closest?.('input, button, select, textarea')) return;
+      this.keys.add(e.key);
+    });
     window.addEventListener('keyup', (e) => this.keys.delete(e.key));
   }
 
@@ -159,7 +159,7 @@ export class Input {
       const subs = [];
       for (let s = 0; s < substeps; s++) {
         const a = at(s / substeps), b = at((s + 1) / substeps);
-        subs.push({ x0: a[0], y0: a[1], x1: b[0], y1: b[1], vx: p.v[0], vy: p.v[1], r: p.r });
+        subs.push({ x0: a[0], y0: a[1], x1: b[0], y1: b[1], vx: p.v[0], vy: p.v[1], r: this.fingerRadius });
       }
       out.push({ id, subs, speed: Math.hypot(...p.v) });
       p.last = cur;

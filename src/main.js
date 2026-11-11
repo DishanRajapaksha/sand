@@ -37,6 +37,8 @@ const standalone = navigator.standalone || matchMedia('(display-mode: fullscreen
 let gl, sim, renderer, input, audio;
 let presetKey = PRESETS[params.get('sand')] ? params.get('sand') : (PRESETS[store.get('preset')] ? store.get('preset') : 'river');
 let screenKey = SCREENS[params.get('screen')] ? params.get('screen') : (SCREENS[store.get('screen')] ? store.get('screen') : 'light');
+const savedFingerSize = Number(store.get('fingerSize', 9.5));
+let fingerSize = Number.isFinite(savedFingerSize) ? Math.max(2, Math.min(30, savedFingerSize)) : 9.5;
 let soundOn = store.get('sound', true) !== false;
 let hapticsOn = store.get('haptics', true) !== false;
 let dpr = 1;
@@ -142,13 +144,13 @@ function applyQuality() {
 
 function worldSize() { return [view.w * mmPerPx, view.h * mmPerPx]; }
 
-function resetWorld(intro, amount = 1) {
+function resetWorld(intro, amount = 1, full = false) {
   const [W, H] = worldSize();
   if (!sim.world || Math.abs(sim.world[0] - W) > 0.01 || Math.abs(sim.world[1] - H) > 0.01 || !sim.count) {
     replacing(sim, () => sim.resize(W, H, particleBudget(W * H)));
   }
   sim.setPreset(PRESETS[presetKey]);
-  sim.pour({ seed: seed++, intro, amount });
+  sim.pour({ seed: seed++, intro, amount, full });
   applyQuality();
   introT = intro ? INTRO : 0;
   statsSeen = false;
@@ -156,6 +158,26 @@ function resetWorld(intro, amount = 1) {
   emptyShown = false;
   $('empty').classList.remove('show');
   needsDraw = true;
+}
+
+// Keep the existing grains and their velocities when topping up the pit.
+function addSand() {
+  const existing = readParticles();
+  const budget = TWfloor(particleBudget(sim.world[0] * sim.world[1]));
+  let live = 0;
+  for (let i = 0; i < sim.count; i++) if (existing.B[i * 4 + 3] >= 0.5) live++;
+  const target = Math.min(budget * 2, live + TWfloor(budget / 4));
+  if (target <= live) { toast('The pit is full. Draw or spill some sand before adding more.'); return; }
+  if (target > sim.count) replacing(sim, () => sim.resize(...sim.world, target));
+  sim.pour({ seed: seed++, intro: true, amount: target / sim.count, existing });
+  applyQuality();
+  introT = INTRO;
+  emptySince = 0;
+  emptyShown = false;
+  $('empty').classList.remove('show');
+  needsDraw = true;
+  perf.hold = performance.now() + (INTRO + 2) * 1000;
+  closeMenu();
 }
 
 function readParticles() {
@@ -207,6 +229,7 @@ function buildGL() {
 
 function init() {
   input = new Input(canvas, mmPerPx);
+  input.fingerRadius = fingerSize / 2;
   if (params.has('flip')) input.sign = -input.sign;
   audio = new SandAudio();
   buildGL();
@@ -485,8 +508,20 @@ function buildMenu() {
     syncHaptics();
     hb.onclick = () => { hapticsOn = !hapticsOn; store.set('haptics', hapticsOn); syncHaptics(); if (hapticsOn) navigator.vibrate(12); };
   } else hb.remove();
+  const size = $('fingerSize');
+  size.value = fingerSize;
+  const syncSize = () => {
+    fingerSize = Number(size.value);
+    input.fingerRadius = fingerSize / 2;
+    $('fingerSizeValue').value = `${fingerSize} mm`;
+    store.set('fingerSize', fingerSize);
+  };
+  size.oninput = syncSize;
+  syncSize();
+  $('addSand').onclick = addSand;
+  $('fillPit').onclick = () => { resetWorld(false, 1, true); closeMenu(); };
   $('pour').onclick = () => { resetWorld(true); closeMenu(); };
-  $('emptyPour').onclick = () => resetWorld(true);
+  $('emptyPour').onclick = addSand;
   $('menuBtn').onclick = (e) => { e.stopPropagation(); $('menu').classList.toggle('open'); };
   $('menu').addEventListener('pointerdown', (e) => e.stopPropagation());
   $('intro').addEventListener('click', start);
@@ -567,7 +602,7 @@ window.sand = {
   stats: () => window.__stats,
   info: () => ({
     count: sim.count, active: sim.active, world: sim.world, grid: [sim.GW, sim.GH], dpr, mmPerPx, floatBlend: sim.floatBlend, maxPoint: renderer.maxPoint,
-    angle: view.angle,
+    angle: view.angle, fingerSize,
     audio: audio.ctx ? audio.ctx.state + (audio.node ? '' : ' (no worklet)') : 'off',
     quality: {
       level: perf.level, dprCap: QUALITY[perf.level].dpr, grains: QUALITY[perf.level].grains,

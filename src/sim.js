@@ -95,7 +95,7 @@ export class SandSim {
     return { uPal: { type: 'v4a', v: p.palette }, uSize: p.size, uSize2: p.size2, uFric: p.fric };
   }
 
-  pour({ seed = 1, intro = true, amount = 1 } = {}) {
+  pour({ seed = 1, intro = true, amount = 1, full = false, existing = null } = {}) {
     const gl = this.gl;
     const [W, H] = this.world;
     const rand = mulberry(seed * 7919 + 13);
@@ -127,7 +127,13 @@ export class SandSim {
     const n = this.count;
     const A = new Float32Array(n * 4);
     const B = new Float32Array(n * 4);
-    const live = Math.floor(n * amount);
+    const live = Math.round(n * amount);
+    let placed = 0;
+    if (existing) {
+      for (let i = 0; i < existing.B.length / 4; i++) if (existing.B[i * 4 + 3] >= 0.5) placed++;
+    }
+    const cols = Math.max(1, Math.round(Math.sqrt(n * W / H)));
+    const rows = Math.ceil(n / cols);
     const PS = 240, path = new Float32Array(PS * 2);
     const turns = 2.2 + rand() * 0.8, ph = rand() * 6.283;
     for (let k = 0; k < PS; k++) {
@@ -140,13 +146,19 @@ export class SandSim {
     }
     const POUR = 1.35;
     for (let i = 0; i < n; i++) {
-      if (i >= live) { B[i * 4 + 3] = 0; A[i * 4] = -10; continue; }
+      if (existing && i * 4 < existing.B.length && existing.B[i * 4 + 3] >= 0.5) {
+        A.set(existing.A.subarray(i * 4, i * 4 + 4), i * 4);
+        B.set(existing.B.subarray(i * 4, i * 4 + 4), i * 4);
+        continue;
+      }
+      if (placed >= live) { B[i * 4 + 3] = 0; A[i * 4] = -10; continue; }
+      placed++;
       const t = rand();
       let lo = 0, hi = cdf.length - 1;
       while (lo < hi) { const m = (lo + hi) >> 1; if (cdf[m] < t) lo = m + 1; else hi = m; }
       const cxi = lo % DW, cyi = (lo / DW) | 0;
-      const x = (cxi + rand()) / DW * W;
-      const y = (cyi + rand()) / DH * H;
+      const x = full ? ((i % cols) + rand()) / cols * W : (cxi + rand()) / DW * W;
+      const y = full ? (Math.floor(i / cols) + rand()) / rows * H : (cyi + rand()) / DH * H;
       A[i * 4] = Math.min(W - 0.3, Math.max(0.3, x));
       A[i * 4 + 1] = Math.min(H - 0.3, Math.max(0.3, y));
       A[i * 4 + 2] = 0;
