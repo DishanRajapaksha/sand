@@ -2,6 +2,7 @@ import assert from 'node:assert/strict';
 import { test } from 'node:test';
 import { SandSim } from '../src/sim.js';
 import { Input } from '../src/input.js';
+import { toPitPoint } from '../src/view.js';
 import { JSDOM } from 'jsdom';
 
 // Capture the buffers uploaded by the real grain generator without requiring a GPU.
@@ -77,4 +78,16 @@ test('successive pours retain the original sand types while adding different mat
   const types = new Set();
   for (let i = 2; i < mixture.B.length; i += 4) types.add(Math.floor(mixture.B[i]));
   assert.equal(types.size, 5);
+});
+
+
+test('zoom keeps drawing aligned with the magnified pit, including rotated phones', () => {
+  const view = { vw: 400, vh: 800, w: 400, h: 800, angle: 0 };
+  assert.deepEqual(toPitPoint(200, 400, view, 8), [200, 400]);
+  assert.deepEqual(toPitPoint(400, 800, view, 1), [400, 800]);
+  assert.deepEqual(toPitPoint(400, 800, view, 8), [225, 450]);
+  const rotated = { ...view, w: 800, h: 400, angle: 90 };
+  const point = toPitPoint(400, 400, rotated, 4);
+  assert(Math.abs(point[0] - 400) < 1e-8);
+  assert(Math.abs(point[1] - 250) < 1e-8);
 });

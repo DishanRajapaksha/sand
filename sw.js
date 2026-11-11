@@ -1,4 +1,4 @@
-const CACHE = 'sand-v4';
+const CACHE = 'sand-v5';
 self.addEventListener('install', () => self.skipWaiting());
 self.addEventListener('activate', (e) => e.waitUntil(
   caches.keys()

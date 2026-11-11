@@ -4,7 +4,7 @@ Real-feeling sand on your phone screen. Tilt the phone and it slides, jerk it an
 
 Open it on a phone: **https://dishanrajapaksha.github.io/sand/**. For true fullscreen, use Share → Add to Home Screen (iOS) or Install app (Android). Before the first pour, pick the sand type and what lies under it on the start card. On iOS, tap "Pour" and allow motion access. Rotating the phone does not move the sand: the picture stays fixed to the glass, the way real sand would. The silent switch mutes the sound on iPhone, and the sound mixes with any music already playing.
 
-Open the menu after pouring to **add the selected sand** without clearing existing grains or changing their types (choose another type to mix sands), **Fill whole pit** with an even layer for drawing, or adjust **Finger size** from 0.2–30 mm. Finger size is remembered between visits. **Pour fresh sand** starts again. Top-ups are capped at twice the initial grain budget to keep the simulation responsive.
+Open the menu after pouring to **add the selected sand** without clearing existing grains or changing their types (choose another type to mix sands), **Fill whole pit** with an even layer for drawing, or adjust **Finger size** from 0.2–30 mm. Finger size is remembered between visits. Use **Zoom** (1–8×) to inspect grains and **Reset zoom** to return to the whole pit. Zoom magnifies the view without changing the sand physics or the selected finger diameter. Filling still obeys gravity: tilt the phone and the filled layer slides towards the lower edge. **Pour fresh sand** starts again. Top-ups are capped at twice the initial grain budget to keep the simulation responsive.
 
 ## How it works
 

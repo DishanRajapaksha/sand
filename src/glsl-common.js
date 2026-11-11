@@ -10,6 +10,7 @@ uniform vec4 uSizes[5];
 uniform vec4 uSize2s[5];
 uniform vec4 uFrics[5];
 uniform vec4 uLook;
+uniform float uZoom;
 
 uint pcg(uint v) {
   uint state = v * 747796405u + 2891336453u;

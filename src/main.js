@@ -2,6 +2,7 @@ import { createContext } from './gl.js';
 import { SandSim, TW } from './sim.js';
 import { Renderer } from './render.js';
 import { Input } from './input.js';
+import { toPitPoint } from './view.js';
 import { SandAudio } from './audio.js';
 import { PRESETS, PRESET_ORDER } from './presets.js';
 import { SCREENS, SCREEN_ORDER, drawScreen } from './screens.js';
@@ -42,6 +43,7 @@ let fingerSize = Number.isFinite(savedFingerSize) ? Math.max(0.2, Math.min(30, s
 let soundOn = store.get('sound', true) !== false;
 let hapticsOn = store.get('haptics', true) !== false;
 let dpr = 1;
+let zoom = 1;
 let view = { w: 0, h: 0, vw: 0, vh: 0, angle: -1, dpr: 0 };
 let started = false;
 let introT = 0;
@@ -117,10 +119,7 @@ function layout(force = false) {
   canvas.style.left = (vw - w) / 2 + 'px';
   canvas.style.top = (vh - h) / 2 + 'px';
   canvas.style.transform = angle ? `rotate(${-angle}deg)` : '';
-  const th = angle * Math.PI / 180, c = Math.cos(th), s = Math.sin(th);
-  input.toLocal = angle
-    ? (x, y) => { const dx = x - vw / 2, dy = y - vh / 2; return [dx * c - dy * s + w / 2, dx * s + dy * c + h / 2]; }
-    : (x, y) => [x, y];
+  input.toLocal = (x, y) => toPitPoint(x, y, view, zoom);
   replacing(renderer, () => renderer.resize(canvas.width, canvas.height, Math.min(1, 1.2 / dpr)));
   refreshScreen();
   perf.hold = performance.now() + 2500;
@@ -226,6 +225,7 @@ function buildGL() {
   gl = ctx.gl;
   sim = new SandSim(gl, ctx.floatBlend);
   renderer = new Renderer(gl);
+  renderer.zoom = zoom;
 }
 
 function init() {
@@ -242,7 +242,7 @@ function init() {
 }
 
 function bindPlatform() {
-  const block = (e) => { if (e.cancelable) e.preventDefault(); };
+  const block = (e) => { if (e.cancelable && !e.target.closest?.('#menu')) e.preventDefault(); };
   document.addEventListener('touchmove', block, { passive: false });
   for (const ev of ['gesturestart', 'gesturechange', 'gestureend', 'dblclick', 'contextmenu', 'selectstart', 'dragstart']) {
     document.addEventListener(ev, block, { passive: false });
@@ -520,6 +520,17 @@ function buildMenu() {
   };
   size.oninput = syncSize;
   syncSize();
+  const magnification = $('zoom');
+  const syncZoom = () => {
+    zoom = Number(magnification.value);
+    renderer.zoom = zoom;
+    $('zoomValue').value = `${zoom.toFixed(1)}×`;
+    input.pointers.clear();
+    needsDraw = true;
+  };
+  magnification.oninput = syncZoom;
+  $('resetZoom').onclick = () => { magnification.value = 1; syncZoom(); };
+  syncZoom();
   $('addSand').textContent = `Add ${PRESETS[presetKey].name.toLowerCase()} sand`;
   $('addSand').onclick = addSand;
   $('fillPit').onclick = () => { resetWorld(false, 1, true); closeMenu(); };
@@ -605,7 +616,7 @@ window.sand = {
   stats: () => window.__stats,
   info: () => ({
     count: sim.count, active: sim.active, world: sim.world, grid: [sim.GW, sim.GH], dpr, mmPerPx, floatBlend: sim.floatBlend, maxPoint: renderer.maxPoint,
-    angle: view.angle, fingerSize,
+    angle: view.angle, fingerSize, zoom,
     audio: audio.ctx ? audio.ctx.state + (audio.node ? '' : ' (no worklet)') : 'off',
     quality: {
       level: perf.level, dprCap: QUALITY[perf.level].dpr, grains: QUALITY[perf.level].grains,

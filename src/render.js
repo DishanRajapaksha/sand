@@ -54,7 +54,7 @@ export class Renderer {
   draw(sim, light) {
     const gl = this.gl;
     const L = light;
-    const common = { ...sim.presetUniforms(), uTW: { type: 'i', v: TW }, uWorld: sim.world, uL: L };
+    const common = { ...sim.presetUniforms(), uTW: { type: 'i', v: TW }, uWorld: sim.world, uL: L, uZoom: this.zoom || 1 };
     gl.bindVertexArray(this.vao);
 
     const sp = this.progs.shadow;

@@ -130,7 +130,7 @@ vec4 sandFloor(vec2 wp, vec3 n, float h) {
   return vec4(alb * (uLook.x * 0.7 + uLook.y * diff) * mix(0.5, 1.0, crev) * dome * deep, m);
 }
 void main() {
-  vec2 uv = vec2(gl_FragCoord.x / uRes.x, 1.0 - gl_FragCoord.y / uRes.y);
+  vec2 uv = (vec2(gl_FragCoord.x / uRes.x, 1.0 - gl_FragCoord.y / uRes.y) - 0.5) / uZoom + 0.5;
   vec3 scr = toLin(texture(uScreen, uv).rgb) * uBg.x;
   vec3 sh = texture(uShadow, uv).rgb;
   float occ = sh.x;
@@ -191,8 +191,8 @@ void main() {
   float zTop;
   float z = grainHeight(g, B, h, zTop);
   float persp = 1.0 / (1.0 - min(B.x, 200.0) / 320.0);
-  vec2 cpos = (A.xy / uWorld * 2.0 - 1.0) * vec2(1.0, -1.0) * persp;
-  float pxmm = uRes.x / uWorld.x;
+  vec2 cpos = (A.xy / uWorld * 2.0 - 1.0) * vec2(1.0, -1.0) * persp * uZoom;
+  float pxmm = uRes.x / uWorld.x * uZoom;
   float rpx = g.r * pxmm * persp;
   float size = min(2.0 * rpx * 1.2 + 2.0, uMaxPt);
   gl_PointSize = size;
