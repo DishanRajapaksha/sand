@@ -411,7 +411,7 @@ function start() {
   started = true;
   const motion = input.requestMotion();
   if (soundOn) audio.start();
-  if (ANDROID && !IOS && coarse && !standalone && document.documentElement.requestFullscreen) {
+  if (ANDROID && !IOS && coarse && !standalone && !window.Capacitor && document.documentElement.requestFullscreen) {
     document.documentElement.requestFullscreen({ navigationUI: 'hide' })
       .then(() => screen.orientation?.lock?.(screen.orientation.type))
       .catch(() => {});
@@ -449,6 +449,7 @@ function buildMenu() {
       const b = document.createElement('button');
       b.className = 'swatch';
       b.dataset.k = k;
+      b.dataset.sand = k;
       b.style.setProperty('--c', PRESETS[k].swatch);
       b.innerHTML = `<i></i><span>${PRESETS[k].name}</span>`;
       b.onclick = () => {
