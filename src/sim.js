@@ -134,6 +134,11 @@ export class SandSim {
     }
     const cols = Math.max(1, Math.round(Math.sqrt(n * W / H)));
     const rows = Math.ceil(n / cols);
+    // Spread even a reduced quality prefix over the whole pit.
+    const gcd = (a, b) => b ? gcd(b, a % b) : a;
+    let stride = Math.floor(n * 0.61803398875);
+    while (gcd(stride, n) !== 1) stride++;
+
     const PS = 240, path = new Float32Array(PS * 2);
     const turns = 2.2 + rand() * 0.8, ph = rand() * 6.283;
     for (let k = 0; k < PS; k++) {
@@ -157,8 +162,9 @@ export class SandSim {
       let lo = 0, hi = cdf.length - 1;
       while (lo < hi) { const m = (lo + hi) >> 1; if (cdf[m] < t) lo = m + 1; else hi = m; }
       const cxi = lo % DW, cyi = (lo / DW) | 0;
-      const x = full ? ((i % cols) + rand()) / cols * W : (cxi + rand()) / DW * W;
-      const y = full ? (Math.floor(i / cols) + rand()) / rows * H : (cyi + rand()) / DH * H;
+      const cell = (i * stride) % n;
+      const x = full ? ((cell % cols) + rand()) / cols * W : (cxi + rand()) / DW * W;
+      const y = full ? (Math.floor(cell / cols) + rand()) / rows * H : (cyi + rand()) / DH * H;
       A[i * 4] = Math.min(W - 0.3, Math.max(0.3, x));
       A[i * 4 + 1] = Math.min(H - 0.3, Math.max(0.3, y));
       A[i * 4 + 2] = 0;

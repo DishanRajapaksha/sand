@@ -30,14 +30,18 @@ test('top-up preserves every live grain and recycles dead slots before leaving u
 test('full pit covers every tile including the edges with settled grains', () => {
   const { A, B } = pour({ seed: 7, intro: false, full: true }, 65536);
   const tiles = new Array(100).fill(0);
+  const reducedTiles = new Array(100).fill(0);
   for (let i = 0; i < B.length / 4; i++) {
     assert.equal(B[i * 4 + 3], 1);
     assert.equal(B[i * 4], 0);
     const x = A[i * 4], y = A[i * 4 + 1];
     assert(x >= .3 && x <= 59.701 && y >= .3 && y <= 99.701);
-    tiles[Math.floor(x / 60 * 10) + 10 * Math.floor(y / 100 * 10)]++;
+    const tile = Math.floor(x / 60 * 10) + 10 * Math.floor(y / 100 * 10);
+    tiles[tile]++;
+    if (i < 65536 * .55) reducedTiles[tile]++;
   }
   assert(Math.min(...tiles) > 550);
+  assert(Math.min(...reducedTiles) > 250);
 });
 
 test('pointer strokes use the selected diameter and slider keys do not tilt sand', () => {
