@@ -33,7 +33,7 @@
   #menuBtn i { width: 28px; height: 28px; border-radius: 50%; background: rgba(24,22,20,.28); -webkit-backdrop-filter: blur(10px); backdrop-filter: blur(10px); display: grid; place-items: center; }
   #menuBtn svg { width: 16px; height: 16px; }
   .started #menuBtn { opacity: .75; pointer-events: auto; }
-  .started.playing #menuBtn { opacity: .22; }
+  .started.playing #menuBtn { opacity: .38; }
   .darkscreen #menuBtn i { background: rgba(255,255,255,.2); }
   #menu { position: fixed; right: max(10px, env(safe-area-inset-right)); top: calc(max(6px, env(safe-area-inset-top)) + 48px); width: min(340px, calc(100vw - 20px)); box-sizing: border-box; padding: 16px 16px 14px; border-radius: 22px; background: rgba(26,24,22,.74); -webkit-backdrop-filter: blur(24px) saturate(1.4); backdrop-filter: blur(24px) saturate(1.4); box-shadow: 0 20px 60px rgba(0,0,0,.35), inset 0 0 0 .5px rgba(255,255,255,.08); z-index: 6; transform-origin: 100% 0; transform: translateY(-6px) scale(.96); opacity: 0; pointer-events: none; transition: transform .22s cubic-bezier(.2,.8,.2,1), opacity .18s ease; }
   #menu.open { transform: none; opacity: 1; pointer-events: auto; }

@@ -218,7 +218,7 @@ function init() {
 }
 
 function bindPlatform() {
-  const block = (e) => e.preventDefault();
+  const block = (e) => { if (e.cancelable) e.preventDefault(); };
   document.addEventListener('touchmove', block, { passive: false });
   for (const ev of ['gesturestart', 'gesturechange', 'gestureend', 'dblclick', 'contextmenu', 'selectstart', 'dragstart']) {
     document.addEventListener(ev, block, { passive: false });
@@ -482,6 +482,11 @@ function buildMenu() {
   $('menuBtn').onclick = (e) => { e.stopPropagation(); $('menu').classList.toggle('open'); };
   $('menu').addEventListener('pointerdown', (e) => e.stopPropagation());
   $('intro').addEventListener('click', start);
+  input.swallow = () => {
+    if (!$('menu').classList.contains('open')) return false;
+    closeMenu();
+    return true;
+  };
   let calm = 0;
   canvas.addEventListener('pointerdown', () => {
     closeMenu();

@@ -29,7 +29,7 @@ void main() {
   ivec2 pc = ivec2(id % uTW, id / uTW);
   vec4 A = texelFetch(uA, pc, 0);
   vec4 B = texelFetch(uB, pc, 0);
-  if (B.w < 0.5 || B.w > 1.5) { gl_Position = vec4(2.0, 2.0, 2.0, 1.0); gl_PointSize = 0.0; return; }
+  if (B.w < 0.5 || B.w > 1.0001) { gl_Position = vec4(2.0, 2.0, 2.0, 1.0); gl_PointSize = 0.0; return; }
   Grain g = grain(uint(id));
   float h = texture(uG0, A.xy / uWorld).x;
   float zTop;
@@ -179,7 +179,7 @@ void main() {
   ivec2 pc = ivec2(id % uTW, id / uTW);
   vec4 A = texelFetch(uA, pc, 0);
   vec4 B = texelFetch(uB, pc, 0);
-  if (B.w < 0.5 || B.w > 1.5) { gl_Position = vec4(2.0, 2.0, 2.0, 1.0); gl_PointSize = 0.0; return; }
+  if (B.w < 0.5 || B.w > 1.0001) { gl_Position = vec4(2.0, 2.0, 2.0, 1.0); gl_PointSize = 0.0; return; }
   Grain g = grain(uid);
   vec2 uv = A.xy / uWorld;
   vec4 G0 = texture(uG0, uv);

@@ -30,6 +30,7 @@ export class Input {
     };
     el.addEventListener('pointerdown', (e) => {
       e.preventDefault();
+      if (this.swallow?.(e)) return;
       el.setPointerCapture?.(e.pointerId);
       const p = pos(e);
       this.pointers.set(e.pointerId, { path: [p], last: p, r: radius(e), v: [0, 0], fresh: true });
@@ -51,7 +52,7 @@ export class Input {
     };
     el.addEventListener('pointerup', end);
     el.addEventListener('pointercancel', end);
-    el.addEventListener('touchmove', (e) => e.preventDefault(), { passive: false });
+    el.addEventListener('touchmove', (e) => { if (e.cancelable) e.preventDefault(); }, { passive: false });
     el.addEventListener('contextmenu', (e) => e.preventDefault());
   }
 

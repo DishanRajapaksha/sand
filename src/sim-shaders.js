@@ -20,7 +20,7 @@ void main() {
   vec4 A = texelFetch(uA, pc, 0);
   vec4 B = texelFetch(uB, pc, 0);
   Grain g = grain(uint(id));
-  if (B.w < 0.5 || B.w > 1.5 || B.x > g.r) { gl_Position = vec4(2.0, 2.0, 2.0, 1.0); gl_PointSize = 0.0; return; }
+  if (B.w < 0.5 || B.w > 1.0001 || B.x > g.r) { gl_Position = vec4(2.0, 2.0, 2.0, 1.0); gl_PointSize = 0.0; return; }
   vec2 cell = uWorld / uGrid;
   vec2 gc = A.xy / cell;
   float rk = max(1.0, g.r * 1.3 / cell.x);
