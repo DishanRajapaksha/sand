@@ -109,13 +109,13 @@ export class SandSim {
       for (let x = 0; x < DW; x++) {
         const u = (x + 0.5) / DW, v = (y + 0.5) / DH;
         const dx = (u - cx), dy = (v - cy) * aspect;
-        const r = Math.sqrt(dx * dx + dy * dy * 0.55) / 0.48;
+        const r = Math.sqrt(dx * dx + dy * dy * 0.42) / 0.56;
         const n = noise(u * 3.1 * W / 60, v * 3.1 * H / 60, 5);
         const fine = noise(u * 14, v * 14 * aspect, 3);
         let d = (n - 0.47) * 3.2 + (1 - r) * 1.9 - 0.25;
-        d = Math.max(0, d);
-        d = Math.min(1.8, d) * (0.65 + 0.7 * fine);
-        d = d * d + 0.012;
+        d = Math.min(1, Math.max(0, d * 2.2));
+        d = d * d * (3 - 2 * d) * (0.55 + 0.9 * fine);
+        d = d + 0.004 + 0.03 * Math.max(0, 1 - r * 0.8);
         dens[y * DW + x] = d;
         total += d;
       }
@@ -127,6 +127,17 @@ export class SandSim {
     const A = new Float32Array(n * 4);
     const B = new Float32Array(n * 4);
     const live = Math.floor(n * amount);
+    const PS = 240, path = new Float32Array(PS * 2);
+    const turns = 2.2 + rand() * 0.8, ph = rand() * 6.283;
+    for (let k = 0; k < PS; k++) {
+      const t = k / (PS - 1);
+      const rad = 0.03 + 0.36 * Math.sqrt(t);
+      const th = ph + 6.283 * turns * t;
+      const wob = 1 + 0.25 * (noise(t * 6, 3.7, 2) - 0.5);
+      path[k * 2] = (cx + Math.cos(th) * rad * wob) * W;
+      path[k * 2 + 1] = (cy + Math.sin(th) * rad * wob * 0.62 / aspect * 1.6) * H;
+    }
+    const POUR = 2.3;
     for (let i = 0; i < n; i++) {
       if (i >= live) { B[i * 4 + 3] = 0; A[i * 4] = -10; continue; }
       const t = rand();
@@ -140,16 +151,22 @@ export class SandSim {
       A[i * 4 + 2] = 0;
       A[i * 4 + 3] = 0;
       if (intro) {
-        const ddx = (x / W - cx), ddy = (y / H - cy) * aspect;
-        const dist = Math.sqrt(ddx * ddx + ddy * ddy);
-        const delay = 0.05 + 1.7 * Math.pow(Math.min(dist / 0.55, 1), 0.9) + 0.35 * rand();
-        const z = 30 + rand() * 170;
-        B.set([z, -rand() * 150, rand(), 1 + delay], i * 4);
-        const ang = Math.atan2(ddy, ddx);
-        A[i * 4] -= Math.cos(ang) * z * 0.02;
-        A[i * 4 + 1] -= Math.sin(ang) * z * 0.02;
-        A[i * 4 + 2] = Math.cos(ang) * 6 * rand();
-        A[i * 4 + 3] = Math.sin(ang) * 6 * rand();
+        let best = 0, bd = 1e9;
+        for (let k = 0; k < PS; k++) {
+          const ex = path[k * 2] - x, ey = path[k * 2 + 1] - y;
+          const dd = ex * ex + ey * ey;
+          if (dd < bd) { bd = dd; best = k; }
+        }
+        const z = 40 + rand() * 140;
+        const vz0 = -rand() * 120;
+        const tf = (vz0 + Math.sqrt(vz0 * vz0 + 2 * 9810 * z)) / 9810;
+        const a = rand() * 6.283, sp = 4 + 18 * rand();
+        A[i * 4 + 2] = Math.cos(a) * sp;
+        A[i * 4 + 3] = Math.sin(a) * sp;
+        A[i * 4] = x - A[i * 4 + 2] * tf;
+        A[i * 4 + 1] = y - A[i * 4 + 3] * tf;
+        const delay = 0.05 + POUR * best / (PS - 1) + 0.18 * rand() + Math.sqrt(bd) * 0.012;
+        B.set([z, vz0, rand(), 1 + delay], i * 4);
       } else {
         B.set([0, 0, rand(), 1], i * 4);
       }
