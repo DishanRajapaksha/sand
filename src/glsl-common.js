@@ -57,7 +57,11 @@ Grain grain(uint i) {
   float bright = 0.78 + 0.44 * rnd(i, 6u);
   vec3 tint = vec3(1.0) + (vec3(rnd(i, 7u), rnd(i, 8u), rnd(i, 9u)) - 0.5) * 0.1;
   g.col = c * bright * tint;
-  if (g.kind == 2.0) g.col = mix(vec3(dot(g.col, vec3(0.3, 0.55, 0.15))), g.col, 0.45) * 0.72;
+  if (g.kind == 2.0) {
+    float sk = rnd(i, 12u);
+    vec3 st = sk < 0.3 ? vec3(0.27, 0.26, 0.245) : sk < 0.45 ? vec3(0.055, 0.055, 0.058) : sk < 0.6 ? vec3(0.42, 0.35, 0.26) : sk < 0.7 ? vec3(0.28, 0.16, 0.09) : sk < 0.8 ? vec3(0.58, 0.56, 0.52) : sk < 0.9 ? vec3(0.15, 0.18, 0.145) : vec3(0.14, 0.155, 0.18);
+    g.col = mix(st * bright, g.col * 0.8, 0.3);
+  }
   float lum = dot(g.col, vec3(0.3, 0.55, 0.15));
   g.sparkle = step(0.7, rnd(i, 10u)) * smoothstep(0.08, 0.35, lum) * uFric.w;
   g.transl = smoothstep(0.12, 0.6, lum) * (g.kind == 2.0 ? 0.15 : 0.6);

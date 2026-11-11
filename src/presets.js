@@ -66,8 +66,8 @@ export const PRESETS = {
     name: 'Coral',
     swatch: '#efe4d6',
     palette: palette([
-      ['#f2ebe0', 34], ['#e8dccb', 24], ['#f5d9cf', 12], ['#d9c7ad', 12],
-      ['#fffaf2', 10], ['#c9a99a', 5], ['#9c8f80', 3],
+      ['#e6ddcf', 32], ['#d8cab5', 24], ['#e9c9bd', 12], ['#c7b293', 13],
+      ['#f4eee4', 9], ['#b58f80', 6], ['#857868', 4],
     ]),
     size: [0.22, 0.4, 0.03, 0.00025],
     size2: [0.6, 2.2, 0.35, 0.8],

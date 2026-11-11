@@ -22,7 +22,7 @@ export const SHADOW_VS = HEADER + COMMON + GRAIN_SHARED + `
 uniform vec2 uRes;
 out float vA;
 out float vSoft;
-out float vPeb;
+out vec2 vPeb;
 out vec4 vGeo;
 void main() {
   int id = gl_VertexID;
@@ -36,16 +36,19 @@ void main() {
   float zc = grainHeight(g, B, h, zTop);
   vec2 off = -uL.xy / max(uL.z, 0.25) * zc;
   vec2 sp = A.xy + off;
-  float soft = 0.12 * zc + 0.05;
+  float soft0 = g.kind == 2.0 ? 0.3 * zc + 0.15 : 0.12 * zc + 0.05;
+  float soft = min(soft0, 1.2);
   float pxmm = uRes.x / uWorld.x;
   float rm = g.kind == 2.0 && B.x <= 0.0 ? g.r * 1.3 + 0.45 : 0.0;
-  vPeb = rm > 0.0 ? 4.13 * g.r * (1.3 * g.r) * (1.3 * g.r) / (rm * rm) / 16.0 : 0.0;
   float half_ = max(g.r + soft, length(off) + rm);
   gl_PointSize = 2.0 * half_ * pxmm + 1.5;
+  vPeb = vec2(rm > 0.0 ? 4.13 * g.r * (1.3 * g.r) * (1.3 * g.r) / (rm * rm) / 16.0 : 0.0, g.r * 0.92 * g.aspect / half_);
   vGeo = vec4((g.r + soft) / half_, vec2(-off.x, off.y) / half_, rm / half_);
   vSoft = clamp(2.0 * soft / (2.0 * g.r + 2.0 * soft), 0.1, 0.95);
   float spread = (2.0 * g.r) / (2.0 * g.r + 2.0 * soft);
-  vA = (g.kind == 2.0 ? 1.0 : 0.7) * mix(1.0, spread * spread, 0.6) * exp(-max(B.x, 0.0) / 12.0);
+  float spread0 = (g.r + soft) / (g.r + soft0);
+  vA = min((g.kind == 2.0 ? 1.0 : 0.7) * mix(1.0, spread * spread, 0.6) * exp(-max(B.x, 0.0) / 12.0) * spread0 * spread0, 1.0);
+  if (vA < 0.004) { gl_Position = vec4(2.0, 2.0, 2.0, 1.0); gl_PointSize = 0.0; return; }
   gl_Position = vec4(sp / uWorld * 2.0 - 1.0, 0.0, 1.0);
 }
 `;
@@ -53,15 +56,16 @@ void main() {
 export const SHADOW_FS = HEADER + `
 in float vA;
 in float vSoft;
-in float vPeb;
+in vec2 vPeb;
 in vec4 vGeo;
 out vec4 o;
 void main() {
   vec2 p = gl_PointCoord * 2.0 - 1.0;
   float a = vA * (1.0 - smoothstep(1.0 - vSoft, 1.0, length(p) / vGeo.x));
   vec2 t = vGeo.w > 0.0 ? abs(p - vGeo.yz) / vGeo.w : vec2(1.0);
-  float m = vPeb * max(1.0 - t.x, 0.0) * max(1.0 - t.y, 0.0);
-  o = vec4(a, m, a, a);
+  float m = vPeb.x * max(1.0 - t.x, 0.0) * max(1.0 - t.y, 0.0);
+  float c = vGeo.w > 0.0 ? 1.0 - smoothstep(0.75, 1.1, length(p - vGeo.yz) / vPeb.y) : 0.0;
+  o = vec4(a, m, c, a);
 }
 `;
 
@@ -90,6 +94,7 @@ uniform vec3 uL;
 uniform vec4 uBg;
 uniform vec3 uRoom;
 uniform vec4 uFloor;
+uniform vec3 uPm;
 out vec4 o;
 vec3 toLin(vec3 c) { return pow(c, vec3(2.2)); }
 float hash12(vec2 p) { vec3 p3 = fract(vec3(p.xyx) * 0.1031); p3 += dot(p3, p3.yzx + 33.33); return fract((p3.x + p3.y) * p3.z); }
@@ -124,14 +129,15 @@ vec4 sandFloor(vec2 wp, vec3 n, float h) {
 void main() {
   vec2 uv = vec2(gl_FragCoord.x / uRes.x, 1.0 - gl_FragCoord.y / uRes.y);
   vec3 scr = toLin(texture(uScreen, uv).rgb) * uBg.x;
-  vec2 sh = texture(uShadow, uv).rg;
+  vec3 sh = texture(uShadow, uv).rgb;
   float occ = sh.x;
   vec4 G = texture(uG0, uv);
   float hb = G.x;
   float ao = 1.0 - uBg.z * smoothstep(0.15, 2.2, hb);
   vec2 rc = (uv - vec2(0.3, 0.12) - uL.xy * vec2(0.6, 0.4)) * vec2(1.0, uRes.y / uRes.x * 0.55);
   float refl = 0.3 + 0.7 * exp(-dot(rc, rc) * 2.2) + 0.25 * smoothstep(0.06, 0.0, abs(dot(uv - vec2(0.75, 0.5), vec2(0.8, 0.6)) - 0.05 * uL.x));
-  vec3 col = scr * (1.0 - occ * uBg.y) * ao + uRoom * refl * (1.0 - occ * 0.85) * ao;
+  vec3 filt = mix(vec3(1.0), uPm / max(uPm.r, max(uPm.g, uPm.b)), smoothstep(uFloor.y, uFloor.z, hb) * 0.75);
+  vec3 col = (scr * filt * (1.0 - occ * uBg.y) * ao + uRoom * refl * (1.0 - occ * 0.85) * ao) * (1.0 - sh.z * 0.6);
   if (hb > uFloor.y - 0.05) {
     vec2 gs = G.yz / max(1.0, length(G.yz));
     float hs = hb - sh.y * 16.0;
@@ -156,6 +162,9 @@ void main() {
 export const GRAIN_VS = HEADER + COMMON + GRAIN_SHARED + `
 uniform vec2 uRes;
 uniform float uMaxPt;
+uniform float uCull;
+uniform float uSq;
+uniform sampler2D uShadow;
 uniform float uTime;
 out vec3 vAlb;
 out vec4 vSeed;
@@ -163,6 +172,7 @@ out vec4 vLit;
 out vec3 vMacro;
 out vec4 vShape;
 out vec2 vScreenUv;
+out vec3 vDepth;
 void main() {
   int id = gl_VertexID;
   uint uid = uint(id);
@@ -174,16 +184,19 @@ void main() {
   vec2 uv = A.xy / uWorld;
   vec4 G0 = texture(uG0, uv);
   float h = G0.x;
+  if (g.kind != 2.0) h = max(h - texture(uShadow, uv).g * 16.0, 0.0);
   float zTop;
   float z = grainHeight(g, B, h, zTop);
   float persp = 1.0 / (1.0 - min(B.x, 200.0) / 320.0);
   vec2 cpos = (A.xy / uWorld * 2.0 - 1.0) * vec2(1.0, -1.0) * persp;
   float pxmm = uRes.x / uWorld.x;
   float rpx = g.r * pxmm * persp;
-  float blur = B.x * 0.005 * pxmm;
-  float size = min(2.0 * rpx * 1.2 + 2.0 + blur * 2.0, uMaxPt);
+  float size = min(2.0 * rpx * 1.2 + 2.0, uMaxPt);
   gl_PointSize = size;
-  gl_Position = vec4(cpos, clamp(1.0 - z / 40.0, -1.0, 1.0), 1.0);
+  if (B.x <= 0.0 && g.kind != 2.0 && h - zTop > uCull) { gl_Position = vec4(2.0, 2.0, 2.0, 1.0); gl_PointSize = 0.0; return; }
+  float zd = B.x > 0.0 ? z : h - (h - z) * (g.kind == 2.0 ? 1.0 : uSq);
+  gl_Position = vec4(cpos, clamp(1.0 - zd / 40.0, -1.0, 1.0), 1.0);
+  vDepth = vec3(zd, g.r * persp, B.x > 0.0 ? 0.0 : 1.0 - smoothstep(0.2, 1.0, h));
 
   vec3 L = uL;
   float lxy = max(length(L.xy), 1e-3);
@@ -198,7 +211,7 @@ void main() {
     }
   }
   float below = max(h - zTop, 0.0);
-  float ao = (0.45 + 0.55 * exp(-below * 1.2)) * (B.x > 0.0 ? 1.0 : mix(0.82, 1.0, clamp(z / max(h, 0.01), 0.0, 1.0)));
+  float ao = (0.55 + 0.45 * exp(-below * 1.2)) * (B.x > 0.0 ? 1.0 : mix(0.82, 1.0, clamp(z / max(h, 0.01), 0.0, 1.0)));
   float macroW = smoothstep(0.3, 1.2, h);
   vMacro = normalize(vec3(-G0.yz / max(1.0, length(G0.yz)) * macroW, 1.0));
   vAlb = g.col;
@@ -206,7 +219,7 @@ void main() {
   vSeed = vec4(rnd(uid, 22u), rnd(uid, 23u), rnd(uid, 24u), rnd(uid, 25u) * 6.2831853 + spin * 0.15);
   float bounce = smoothstep(0.1, 0.6, dot(g.col, vec3(0.3, 0.55, 0.15)));
   vLit = vec4(1.0 - sh * 0.7, mix(ao, 1.0, bounce * 0.5), g.transl * (1.0 - smoothstep(0.25, 0.8, h)) * step(B.x, 0.0), g.sparkle);
-  vShape = vec4(size / (2.0 * rpx), g.kind, g.aspect, blur / max(rpx, 0.5));
+  vShape = vec4(size / (2.0 * rpx), g.kind, g.aspect, 0.0);
   vScreenUv = vec2(uv.x, uv.y);
 }
 `;
@@ -222,6 +235,7 @@ in vec4 vLit;
 in vec3 vMacro;
 in vec4 vShape;
 in vec2 vScreenUv;
+in vec3 vDepth;
 out vec4 o;
 
 float hash12(vec2 p) { vec3 p3 = fract(vec3(p.xyx) * 0.1031); p3 += dot(p3, p3.yzx + 33.33); return fract((p3.x + p3.y) * p3.z); }
@@ -238,20 +252,27 @@ void main() {
   q.x /= vShape.z;
   bool peb = vShape.y == 2.0;
   float ang = atan(q.y, q.x);
-  float angular = peb ? 0.04 + 0.07 * vSeed.x : 0.11;
+  float angular = peb ? 0.03 + 0.15 * vSeed.x * vSeed.x : 0.11;
   float R = 1.0
     + angular * sin(2.0 * ang + vSeed.x * 6.28) * (0.5 + vSeed.y)
     + angular * 0.7 * sin(3.0 * ang + vSeed.y * 6.28)
     + angular * 0.45 * sin(5.0 * ang + vSeed.z * 6.28);
   R *= 1.0 / (1.0 + angular * 0.9);
+  float k = 5.0 + floor(vSeed.x * 3.0);
+  float su = (ang / 6.2831853 + vSeed.z) * k;
+  float sector = floor(su);
+  if (!peb) {
+    float poly = cos(3.14159 / k) / cos((fract(su) - 0.5) * 6.2831853 / k);
+    R *= mix(1.0, poly * (1.0 + 0.12 * (hash12(vec2(sector, vSeed.y * 71.0)) - 0.5)) / 0.93, 0.7);
+  }
   float rho = length(q) / R;
   float aa = max(fwidth(rho), 0.02);
-  float bk = 1.0 + vShape.w * 0.5;
-  float alpha = 1.0 - smoothstep(1.0 - aa - vShape.w * 0.5, bk + aa * 0.25, rho);
+  float alpha = 1.0 - smoothstep(1.0 - aa, 1.0 + aa * 0.25, rho);
   if (alpha < 0.02) discard;
 
-  vec2 nq = q / (R * bk);
+  vec2 nq = q / R;
   float r2 = min(dot(nq, nq), 0.995);
+  gl_FragDepth = clamp(1.0 - (vDepth.x + vDepth.y * sqrt(1.0 - r2)) / 40.0, 0.0, 1.0);
   vec3 L = normalize(uL);
   vec3 alb = vAlb;
   vec3 n;
@@ -277,15 +298,13 @@ void main() {
     alb = mix(alb, alb * 0.35, dk * 0.6);
     spec = pow(max(dot(n, normalize(L + vec3(0.0, 0.0, 1.0))), 0.0), 18.0) * 0.06;
   } else {
-    float k = 5.0 + floor(vSeed.x * 3.0);
-    float sector = floor((ang / 6.2831853 + vSeed.z) * k);
     float ac = ((sector + 0.5) / k - vSeed.z) * 6.2831853;
     float sh = hash12(vec2(sector, vSeed.y * 113.0));
     vec3 nf = normalize(vec3(vec2(cos(ac), sin(ac)) * (0.7 + 0.9 * sh), 1.0));
     vec3 nt = normalize(vec3((vSeed.xy - 0.5) * 0.5, 1.0));
-    float topR = 0.3 + 0.35 * vSeed.y;
+    float dA = length(nq - (vSeed.yx - 0.5) * 0.5);
     vec3 nd = normalize(vec3(nq * 0.85, sqrt(1.0 - r2) + 0.25));
-    n = normalize(mix(mix(nt, nf, smoothstep(topR - 0.1, topR + 0.1, rho)), nd, 0.35));
+    n = normalize(mix(mix(nt, nf, smoothstep(0.05, 0.7, dA)), nd, 0.35));
     alb *= 0.88 + 0.24 * vnoise(q * 1.7 + vSeed.zy * 19.0);
     spec = pow(max(dot(n, normalize(L + vec3(0.0, 0.0, 1.0))), 0.0), 30.0) * 0.05;
     vec3 facet = normalize(vec3((vSeed.yz - 0.5) * 0.9, 1.0));
@@ -300,7 +319,6 @@ void main() {
   float hemi = 0.5 + 0.5 * n.z;
   float rimOcc = mix(0.7, 1.0, smoothstep(0.05, 0.6, n.z));
   if (peb) rimOcc *= 0.55 + 0.45 * clamp(dot(n, L), 0.0, 1.0);
-  else rimOcc *= 1.0 - 0.32 * smoothstep(0.6, 1.0, rho) * (1.0 - vLit.z);
   float ms = clamp(dot(vMacro, L) / max(L.z, 0.3), 0.62, 1.45);
   float bl = smoothstep(0.1, 0.6, dot(vAlb, vec3(0.3, 0.55, 0.15)));
   ms = ms < 1.0 ? mix(ms, 1.0, bl * 0.6) : ms;
@@ -309,7 +327,7 @@ void main() {
   col += vec3(spec * vLit.x * vLit.y) + vec3(1.0, 0.97, 0.92) * glint * vLit.x;
 
   vec3 scr = pow(texture(uScreen, vScreenUv).rgb, vec3(2.2)) * uScreenGain;
-  col += scr * vAlb * vLit.z * (1.0 - smoothstep(0.35, 0.95, rho)) * 0.32 * uLook.w;
+  col += scr * vAlb * (vLit.z * (1.0 - smoothstep(0.35, 0.95, rho)) * 0.25 + vDepth.z * 0.1) * uLook.w;
 
   col = max(col, 0.0);
   col /= 1.0 + 0.9 * max(max(col.r, max(col.g, col.b)) - 0.55, 0.0);

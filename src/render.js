@@ -20,7 +20,7 @@ export class Renderer {
     gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE);
     gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE);
     gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, 1, 1, 0, gl.RGBA, gl.UNSIGNED_BYTE, new Uint8Array([240, 240, 240, 255]));
-    this.look = { screenGain: 1, shadowK: 0.42, aoK: 0.28, room: [0.009, 0.009, 0.0102], amb: 0.9, key: 0.85, sparkle: 1, transl: 1, floor: [0.3, 0.85, 0.5] };
+    this.look = { screenGain: 1, shadowK: 0.42, aoK: 0.28, room: [0.009, 0.009, 0.0102], amb: 1.15, key: 1.0, sparkle: 1, transl: 1, floor: [0.3, 0.85, 0.5], cull: 3.0, sq: 0.5 };
   }
 
   resize(w, h, shadowScale) {
@@ -30,6 +30,17 @@ export class Renderer {
     this.sh = Math.max(16, Math.round(h * shadowScale));
     this.shadowTex = [0, 1].map(() => texture(gl, this.sw, this.sh, gl.RGBA8, gl.RGBA, gl.UNSIGNED_BYTE, gl.LINEAR));
     this.shadowFb = this.shadowTex.map((t) => framebuffer(gl, [t]));
+  }
+
+  paletteMean(pal) {
+    const m = [0, 0, 0];
+    let prev = 0;
+    for (let k = 0; k < 8; k++) {
+      const w = Math.max(pal[k * 4 + 3] - prev, 0);
+      prev = Math.max(prev, pal[k * 4 + 3]);
+      for (let c = 0; c < 3; c++) m[c] += pal[k * 4 + c] * w;
+    }
+    return m;
   }
 
   setScreen(canvas) {
@@ -88,6 +99,7 @@ export class Renderer {
       uBg: [look.screenGain, look.shadowK, look.aoK, 0],
       uRoom: look.room,
       uLook: [look.amb, look.key, look.sparkle, look.transl],
+      uPm: this.paletteMean(sim.preset.palette),
       uFloor: [1.6 * sim.preset.size[0], look.floor[0] * fs, look.floor[1] * fs, look.floor[2]],
     });
     gl.drawArrays(gl.TRIANGLES, 0, 3);
@@ -104,10 +116,13 @@ export class Renderer {
     bindTex(gl, gp, 'uB', sim.B, 1);
     bindTex(gl, gp, 'uG0', sim.G0, 2);
     bindTex(gl, gp, 'uScreen', this.screenTex, 3);
+    bindTex(gl, gp, 'uShadow', this.shadowTex[0], 4);
     setUniforms(gl, gp, {
       ...common,
       uRes: [this.w, this.h],
       uMaxPt: this.maxPoint,
+      uCull: look.cull,
+      uSq: look.sq,
       uLook: [look.amb, look.key, look.sparkle, look.transl],
       uScreenGain: look.screenGain,
     });
