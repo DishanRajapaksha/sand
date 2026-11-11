@@ -7,7 +7,6 @@ export function createContext(canvas) {
     premultipliedAlpha: false,
     preserveDrawingBuffer: false,
     powerPreference: 'high-performance',
-    desynchronized: true,
   });
   if (!gl) throw new Error('WebGL2 is not available on this device.');
   const cbf = gl.getExtension('EXT_color_buffer_float');

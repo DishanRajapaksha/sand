@@ -20,7 +20,7 @@ export class Renderer {
     gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE);
     gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE);
     gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, 1, 1, 0, gl.RGBA, gl.UNSIGNED_BYTE, new Uint8Array([240, 240, 240, 255]));
-    this.look = { screenGain: 1, shadowK: 0.42, aoK: 0.28, room: [0.0, 0.0, 0.0], amb: 0.62, key: 0.72, sparkle: 1, transl: 1 };
+    this.look = { screenGain: 1, shadowK: 0.42, aoK: 0.28, room: [0.0, 0.0, 0.0], amb: 0.9, key: 0.85, sparkle: 1, transl: 1, floor: [0.4, 1.1, 0.5] };
   }
 
   resize(w, h, shadowScale) {
@@ -81,7 +81,14 @@ export class Renderer {
     bindTex(gl, bgp, 'uScreen', this.screenTex, 0);
     bindTex(gl, bgp, 'uShadow', this.shadowTex[0], 1);
     bindTex(gl, bgp, 'uG0', sim.G0, 2);
-    setUniforms(gl, bgp, { uRes: [this.w, this.h], uBg: [look.screenGain, look.shadowK, look.aoK, 0], uRoom: look.room });
+    setUniforms(gl, bgp, {
+      ...common,
+      uRes: [this.w, this.h],
+      uBg: [look.screenGain, look.shadowK, look.aoK, 0],
+      uRoom: look.room,
+      uLook: [look.amb, look.key, look.sparkle, look.transl],
+      uFloor: [1.6 * sim.preset.size[0], look.floor[0], look.floor[1], look.floor[2]],
+    });
     gl.drawArrays(gl.TRIANGLES, 0, 3);
 
     gl.enable(gl.DEPTH_TEST);
