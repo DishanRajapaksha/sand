@@ -42,23 +42,24 @@ Grain grain(uint i) {
   if (u < uSize.w) {
     g.kind = 2.0;
     g.r = mix(uSize2.x, uSize2.y, pow(rnd(i, 3u), 2.2));
-    g.mu = mix(0.12, 0.5, rnd(i, 4u));
+    g.mu = rnd(i, 23u) < 0.6 ? mix(0.1, 0.22, rnd(i, 4u)) : mix(0.3, 0.5, rnd(i, 4u));
   } else if (u < uSize.w + uSize.z) {
     g.kind = 1.0;
     g.r = mix(uSize2.z, uSize2.w, pow(rnd(i, 3u), 1.5));
-    g.mu = mix(uFric.x, uFric.y, rnd(i, 4u)) * 0.85;
+    g.mu = rnd(i, 23u) < 0.35 ? mix(uFric.x * 0.6, uFric.x * 1.2, rnd(i, 4u)) : mix(uFric.x * 1.6, uFric.y, rnd(i, 4u)) * 0.85;
   } else {
     g.kind = 0.0;
     g.r = clamp(uSize.x * exp(uSize.y * gs), 0.045, 0.42);
-    g.mu = mix(uFric.x, uFric.y, rnd(i, 4u));
+    g.mu = rnd(i, 23u) < 0.25 ? mix(uFric.x * 0.6, uFric.x * 1.2, rnd(i, 4u)) : mix(uFric.x * 1.6, uFric.y, rnd(i, 4u));
   }
   float cu = rnd(i, 5u);
   vec3 c = pickColor(cu);
-  float bright = 0.72 + 0.56 * rnd(i, 6u);
-  vec3 tint = vec3(1.0) + (vec3(rnd(i, 7u), rnd(i, 8u), rnd(i, 9u)) - 0.5) * 0.16;
+  float bright = 0.78 + 0.44 * rnd(i, 6u);
+  vec3 tint = vec3(1.0) + (vec3(rnd(i, 7u), rnd(i, 8u), rnd(i, 9u)) - 0.5) * 0.1;
   g.col = c * bright * tint;
+  if (g.kind == 2.0) g.col = mix(vec3(dot(g.col, vec3(0.3, 0.55, 0.15))), g.col, 0.45) * 0.72;
   float lum = dot(g.col, vec3(0.3, 0.55, 0.15));
-  g.sparkle = step(0.55, rnd(i, 10u)) * smoothstep(0.08, 0.35, lum) * uFric.w;
+  g.sparkle = step(0.7, rnd(i, 10u)) * smoothstep(0.08, 0.35, lum) * uFric.w;
   g.transl = smoothstep(0.12, 0.6, lum) * (g.kind == 2.0 ? 0.15 : 0.6);
   g.aspect = mix(0.7, 1.0, rnd(i, 11u));
   return g;

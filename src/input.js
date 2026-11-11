@@ -6,8 +6,8 @@ export class Input {
     this.mmPerPx = mmPerPx;
     this.pointers = new Map();
     this.motion = null;
-    this.sign = 0;
-    this.calib = [];
+    this.sign = /iP(hone|ad|od)/.test(navigator.userAgent) || (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1) ? -1 : 1;
+    this.toLocal = (x, y) => [x, y];
     this.lastMotionTime = 0;
     this.keyTilt = [0, 0];
     this.keys = new Set();
@@ -20,7 +20,7 @@ export class Input {
 
   bindPointers() {
     const el = this.el;
-    const pos = (e) => [e.clientX * this.mmPerPx, e.clientY * this.mmPerPx];
+    const pos = (e) => this.toLocal(e.clientX, e.clientY).map((c) => c * this.mmPerPx);
     const radius = (e) => {
       const w = Math.max(e.width || 0, e.height || 0);
       if (e.pointerType === 'touch' && w > 4) return Math.min(7.5, Math.max(3.6, w * 0.5 * this.mmPerPx * 0.9));
@@ -64,27 +64,17 @@ export class Input {
         if (res !== 'granted') return false;
       } catch { return false; }
     }
-    window.addEventListener('devicemotion', (e) => this.onMotion(e));
+    if (!this.listening) {
+      this.listening = true;
+      window.addEventListener('devicemotion', (e) => this.onMotion(e));
+    }
     return true;
   }
 
   onMotion(e) {
     const a = e.accelerationIncludingGravity;
     if (!a || a.x === null || a.x === undefined) return;
-    let v = [a.x, a.y, a.z];
-    if (!this.sign) {
-      if (Math.abs(a.z) > 3) this.calib.push(Math.sign(a.z));
-      if (this.calib.length >= 8) {
-        const s = this.calib.reduce((x, y) => x + y, 0);
-        this.sign = s >= 0 ? 1 : -1;
-      } else return;
-    }
-    v = v.map((c) => c * this.sign);
-    const ang = ((screen.orientation && screen.orientation.angle) ?? window.orientation ?? 0) * Math.PI / 180;
-    const c = Math.cos(ang), s = Math.sin(ang);
-    const sx = v[0] * c - v[1] * s;
-    const sUp = v[0] * s + v[1] * c;
-    const f = [sx, -sUp, v[2]];
+    const f = [a.x * this.sign, -a.y * this.sign, a.z * this.sign];
     if (!this.motion) this.motion = f;
     else for (let i = 0; i < 3; i++) this.motion[i] = this.motion[i] * 0.35 + f[i] * 0.65;
     this.lastMotionTime = performance.now();

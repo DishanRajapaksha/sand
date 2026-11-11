@@ -77,7 +77,11 @@ void main() {
   float s = 0.0;
   float W[5] = float[5](0.2270, 0.1945, 0.1216, 0.0540, 0.0162);
   for (int k = -4; k <= 4; k++) {
-    s += W[abs(k)] * texelFetch(uT, clamp(c + uDir * k, ivec2(0), mx), 0).y;
+    ivec2 q = c + uDir * k;
+    ivec2 e = clamp(q, ivec2(0), mx);
+    float v = texelFetch(uT, e, 0).y;
+    if (q != e) v = max(2.0 * v - texelFetch(uT, clamp(2 * e - q, ivec2(0), mx), 0).y, 0.0);
+    s += W[abs(k)] * v;
   }
   o = vec4(base.x, s, base.zw);
 }
@@ -95,7 +99,8 @@ void main() {
   float d = texelFetch(uT, clamp(c - ivec2(0, 1), ivec2(0), mx), 0).y;
   float u = texelFetch(uT, clamp(c + ivec2(0, 1), ivec2(0), mx), 0).y;
   vec4 base = texelFetch(uT, c, 0);
-  o = vec4(base.x, (r - l) / (2.0 * uCell.x), (u - d) / (2.0 * uCell.y), base.y);
+  vec2 k = vec2(c.x > 0 && c.x < mx.x ? 2.0 : 1.0, c.y > 0 && c.y < mx.y ? 2.0 : 1.0);
+  o = vec4(base.x, (r - l) / (k.x * uCell.x), (u - d) / (k.y * uCell.y), base.y);
 }
 `;
 
@@ -143,7 +148,15 @@ void main() {
   vec2 vg = G1.xy;
   float dt = uDt;
 
-  if (zAir <= 0.0 && N < -600.0) { zAir = 1e-3; vz = 0.0; }
+  vec2 cs = uWorld / vec2(textureSize(uG0, 0));
+  float rk = max(1.0, g.r * 1.3 / cs.x);
+  float selfH = 4.18879 * g.r * g.r * g.r / (0.6 * cs.x * cs.y * rk * rk) * (0.172 + 0.85 * (rk - 1.0) / (rk + 0.9));
+  float contact = smoothstep(0.2, 0.8, max(h - selfH, 0.0) / max(2.0 * uSize.x, 0.05));
+  bool peb = g.kind == 2.0;
+  float glue = g.kind == 0.0 ? min(pow(0.1 / g.r, 3.0), 6.0) * (1.0 - smoothstep(0.12, 0.17, g.r)) * (rnd(idx, 22u) < 0.45 ? 1.0 : 1.0 - contact) : 0.0;
+  float adh = 9810.0 * glue;
+
+  if (zAir <= 0.0 && N + adh < -600.0) { zAir = 1e-3; vz = 0.0; }
 
   if (zAir > 0.0) {
     vz += -N * dt;
@@ -155,30 +168,31 @@ void main() {
       float impact = max(-vz, 0.0);
       zAir = 0.0;
       vz = 0.0;
-      v = v * mix(0.35, 0.75, rnd3(idx, 12u, uFrame)) + rdir(idx, 13u) * impact * (g.kind == 2.0 ? 0.04 : 0.12) * rnd3(idx, 14u, uFrame);
+      v = v * mix(0.35, 0.75, rnd3(idx, 12u, uFrame)) + rdir(idx, 13u) * impact * (peb ? 0.04 : 0.12) * rnd3(idx, 14u, uFrame);
       layer = 0.75 + 0.25 * rnd(idx, 15u);
     }
     if (zAir > 70.0 && vz > 0.0) { oB = vec4(zAir, vz, layer, 0.0); oA = vec4(p, v); return; }
   } else {
-    float Np = max(N, 0.0);
-    float Ns = max(N, 2900.0);
-    float contact = smoothstep(0.25, 1.1, h / max(2.0 * uSize.x, 0.05));
+    float Ns = max(N, 5900.0);
     float sp0 = length(v);
-    float mu = mix(g.mu, uFric.z, contact * (g.kind == 2.0 ? 0.6 : 1.0));
+    float mu = mix(g.mu, uFric.z * 0.85, contact * (peb ? 0.2 : 1.0));
     if (sp0 < 0.8) mu *= 1.18;
-    float slopeK = g.kind == 2.0 ? 1.4 : 1.0;
-    vec2 drive = gt - Ns * grad * slopeK;
-    float pic = 1.0 - exp(-dt * 70.0 * contact * (g.kind == 2.0 ? 0.25 : 1.0));
+    vec2 gr = grad * (peb ? 1.4 : 1.0);
+    float gl = length(gr);
+    float se = max(gl - uFric.z * 0.45 * contact, 0.0);
+    vec2 drive = gt - (gl > 1e-5 ? gr / gl : vec2(0.0)) * Ns * se * contact;
+    float pic = 1.0 - exp(-dt * 70.0 * contact * (peb ? 0.25 : 1.0));
     v = mix(v, vg, pic);
     v += drive * dt;
+    v *= exp(-dt * 45.0 * contact * min(se, 8.0));
     float sp = length(v);
-    float fr = mu * Np * dt;
+    float fr = mu * max(N + adh, 0.0) * dt;
     if (sp <= fr) v = vec2(0.0);
     else v -= v / sp * fr;
     sp = length(v);
     if (sp > 1.0) {
       v += rdir(idx, 16u) * sp * (0.05 + 0.08 * contact) * rnd3(idx, 17u, uFrame);
-      float target = g.kind == 2.0 ? 1.0 : 0.55 + 0.45 * rnd3(idx, 18u, uFrame);
+      float target = peb ? 1.0 : 0.55 + 0.45 * rnd3(idx, 18u, uFrame);
       layer = mix(layer, target, clamp(sp * dt * 0.8, 0.0, 0.25));
     }
     float vmax = 2500.0;
@@ -202,7 +216,7 @@ void main() {
       float R = fb.z + g.r * 0.6;
       if (dist < R) {
         vec2 n = dist > 1e-4 ? d / dist : rdir(idx, 20u);
-        p = c + n * R;
+        p = c + n * (R + (R - dist > 0.15 ? 1.6 * rnd3(idx, 23u, uFrame) : 0.0));
         vec2 U = fb.xy;
         vec2 vrel = v - U;
         float vn = dot(vrel, n);
