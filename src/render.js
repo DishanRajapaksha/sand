@@ -89,19 +89,28 @@ export class Renderer {
     gl.depthMask(false);
     const look = this.look;
     const bgp = this.progs.bg;
-    const counts = sim.materialCounts;
-    const total = Math.max(1, counts.reduce((a, b) => a + b, 0));
-    const mean = [0, 0, 0];
-    let size = 0, cumulative = 0;
+    const counts = sim.materialCounts || [];
+    const total = counts.reduce((a, b) => a + b, 0);
+    let mean = this.paletteMean(sim.preset.palette);
+    let size = sim.preset.size[0];
     const mix = new Float32Array(20);
-    PRESET_ORDER.forEach((key, i) => {
-      const weight = counts[i] / total;
-      size += PRESETS[key].size[0] * weight;
-      this.paletteMean(PRESETS[key].palette).forEach((v, c) => { mean[c] += v * weight; });
-      cumulative += weight;
-      mix[i * 4] = cumulative;
-    });
-    size ||= sim.preset.size[0];
+    if (total > 0) {
+      mean = [0, 0, 0];
+      size = 0;
+      let cumulative = 0;
+      PRESET_ORDER.forEach((key, i) => {
+        const weight = (counts[i] || 0) / total;
+        size += PRESETS[key].size[0] * weight;
+        this.paletteMean(PRESETS[key].palette).forEach((v, c) => { mean[c] += v * weight; });
+        cumulative += weight;
+        mix[i * 4] = cumulative;
+      });
+    } else {
+      // The start screen has no grains yet. Retain a real palette instead of
+      // sending a zero colour into the background shader's normalisation.
+      const selected = Math.max(0, PRESET_ORDER.findIndex((key) => PRESETS[key] === sim.preset));
+      for (let i = selected; i < PRESET_ORDER.length; i++) mix[i * 4] = 1;
+    }
     const fs = Math.pow(size / 0.19, 3);
     gl.useProgram(bgp.p);
     bindTex(gl, bgp, 'uScreen', this.screenTex, 0);

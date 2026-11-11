@@ -139,7 +139,7 @@ void main() {
   float ao = 1.0 - uBg.z * smoothstep(0.15, 2.2, hb);
   vec2 rc = (uv - vec2(0.3, 0.12) - uL.xy * vec2(0.6, 0.4)) * vec2(1.0, uRes.y / uRes.x * 0.55);
   float refl = 0.3 + 0.7 * exp(-dot(rc, rc) * 2.2) + 0.25 * smoothstep(0.06, 0.0, abs(dot(uv - vec2(0.75, 0.5), vec2(0.8, 0.6)) - 0.05 * uL.x));
-  vec3 filt = mix(vec3(1.0), uPm / max(uPm.r, max(uPm.g, uPm.b)), smoothstep(uFloor.y, uFloor.z, hb) * 0.75);
+  vec3 filt = mix(vec3(1.0), uPm / max(0.0001, max(uPm.r, max(uPm.g, uPm.b))), smoothstep(uFloor.y, uFloor.z, hb) * 0.75);
   vec3 col = (scr * filt * (1.0 - occ * uBg.y) * ao + uRoom * refl * (1.0 - occ * 0.85) * ao) * (1.0 - sh.z * 0.6);
   if (hb > uFloor.y - 0.05) {
     vec2 gs = G.yz / max(1.0, length(G.yz));
