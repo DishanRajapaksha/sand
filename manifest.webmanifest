@@ -1,7 +1,7 @@
 {
-  "name": "Sand",
+  "name": "Sand: Hyper-Realistic Sand Simulator",
   "short_name": "Sand",
-  "description": "Real sand on your screen. Tilt, shake and draw.",
+  "description": "A hyper-realistic sand simulator built with WebGL2 and JavaScript. Touch, tilt and shake to play in your browser.",
   "start_url": "./",
   "scope": "./",
   "display": "fullscreen",

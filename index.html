@@ -9,8 +9,38 @@
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
 <meta name="apple-mobile-web-app-title" content="Sand">
-<meta name="description" content="Real sand on your screen. Tilt, shake and draw.">
-<title>Sand</title>
+<meta name="description" content="Play with a hyper-realistic sand simulator in your browser. Built with WebGL2 and JavaScript, with touch controls and device motion on phones and tablets.">
+<title>Sand | Hyper-Realistic Sand Simulator in Your Browser</title>
+<link rel="canonical" href="https://av.github.io/safe-sand/">
+<meta property="og:type" content="website">
+<meta property="og:site_name" content="Sand">
+<meta property="og:title" content="Sand | Hyper-Realistic Sand Simulator in Your Browser">
+<meta property="og:description" content="Sand simulated with WebGL2 and JavaScript. Drag to draw, tilt your phone to slide the grains, and shake to scatter them. Play right in your browser.">
+<meta property="og:url" content="https://av.github.io/safe-sand/">
+<meta property="og:image" content="https://av.github.io/safe-sand/icons/icon-512.png">
+<meta property="og:image:width" content="512">
+<meta property="og:image:height" content="512">
+<meta property="og:image:alt" content="Sand simulator app icon">
+<meta name="twitter:card" content="summary">
+<meta name="twitter:title" content="Sand | Hyper-Realistic Sand Simulator in Your Browser">
+<meta name="twitter:description" content="Sand simulated with WebGL2 and JavaScript. Drag to draw, tilt your phone to slide the grains, and shake to scatter them. Play right in your browser.">
+<meta name="twitter:image" content="https://av.github.io/safe-sand/icons/icon-512.png">
+<meta name="twitter:image:alt" content="Sand simulator app icon">
+<script type="application/ld+json">
+{
+  "@context": "https://schema.org",
+  "@type": "WebApplication",
+  "name": "Sand",
+  "url": "https://av.github.io/safe-sand/",
+  "description": "A hyper-realistic sand simulator built with WebGL2 and JavaScript. Push grains with touch or a mouse, tilt and shake your phone, and explore five sand types with dynamic lighting and granular sound.",
+  "applicationCategory": "EntertainmentApplication",
+  "operatingSystem": "Any",
+  "browserRequirements": "Requires JavaScript and a browser with WebGL2 support.",
+  "isAccessibleForFree": true,
+  "inLanguage": "en",
+  "image": "https://av.github.io/safe-sand/icons/icon-512.png"
+}
+</script>
 <link rel="manifest" href="manifest.webmanifest">
 <link rel="icon" href="icons/icon-192.png">
 <link rel="apple-touch-icon" href="icons/icon-180.png">
@@ -24,6 +54,7 @@
   #intro.hide { opacity: 0; visibility: hidden; pointer-events: none; transition: opacity .2s ease, visibility 0s linear .2s; }
   .card { text-align: center; color: var(--ink); padding: 32px; max-width: 300px; animation: rise .9s cubic-bezier(.2,.8,.2,1) both; }
   .card h1 { margin: 0; font-weight: 300; font-size: 44px; letter-spacing: .32em; text-indent: .32em; text-transform: uppercase; }
+  .card h2 { margin: 14px 0 0; font-size: 19px; font-weight: 500; }
   .card p { margin: 14px 0 30px; color: var(--sub); font-size: 15px; letter-spacing: .01em; }
   .cta { display: inline-flex; align-items: center; justify-content: center; min-width: 132px; padding: 14px 30px; border-radius: 999px; background: var(--btn); color: var(--btnInk); font-weight: 600; font-size: 15px; letter-spacing: .04em; box-shadow: 0 10px 30px rgba(20,18,16,.18); transition: transform .15s ease; }
   #intro:active .cta { transform: scale(.97); }
@@ -56,7 +87,7 @@
 </head>
 <body>
 <canvas id="c"></canvas>
-<div id="intro"><div class="card"><h1>Sand</h1><p>Real sand, right on your screen.</p><span class="cta">Pour</span><div class="hint">Lay it flat · Tilt · Shake · Draw</div></div></div>
+<div id="intro"><div class="card"><h1>Sand</h1><h2>Hyper-realistic sand simulator</h2><p>Built with WebGL2 and JavaScript. Push grains with your finger, tilt your phone to make them slide, or shake to scatter them. Play in your browser on phones, tablets and desktops.</p><span class="cta">Pour</span><div class="hint">Lay it flat · Tilt · Shake · Draw</div></div></div>
 <div id="empty"><button class="btn" id="emptyPour">Pour more sand</button></div>
 <button id="menuBtn" aria-label="Menu"><i><svg viewBox="0 0 24 24" fill="#fff"><circle cx="5" cy="12" r="2"/><circle cx="12" cy="12" r="2"/><circle cx="19" cy="12" r="2"/></svg></i></button>
 <div id="menu">
