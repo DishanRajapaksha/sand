@@ -109,7 +109,8 @@ vec4 sandFloor(vec2 wp, vec3 n, float h) {
   uint id = uint(int(c1.x) + 8192) + uint(int(c1.y) + 8192) * 16384u + 2654435769u;
   vec3 alb = pickColor(rnd(id, 5u)) * (0.72 + 0.56 * rnd(id, 6u));
   float t = mix(uFloor.y, uFloor.z, rnd(id, 7u));
-  float rad = mix(0.42, 1.3, smoothstep(t, t + 0.6, h));
+  float sc = uFloor.x / 0.304;
+  float rad = mix(0.45, 1.3, smoothstep(t + 0.1 * sc, t + 0.9 * sc, h));
   float px = fwidth(d1);
   float m = (1.0 - smoothstep(rad - px, rad + px, d1)) * smoothstep(t - 0.02, t + 0.02, h);
   float crev = smoothstep(0.0, 0.3, d2 - d1);
@@ -117,7 +118,8 @@ vec4 sandFloor(vec2 wp, vec3 n, float h) {
   vec3 gn = normalize(n + vec3(dn * 0.9, 0.0));
   float diff = max(dot(gn, uL), 0.0);
   float dome = 1.0 - 0.3 * smoothstep(0.3, 0.9, length(dn));
-  return vec4(alb * (uLook.x * 0.7 + uLook.y * diff) * mix(0.5, 1.0, crev) * dome, m);
+  float deep = mix(1.0, mix(uFloor.w, 0.85, smoothstep(0.1, 0.6, dot(alb, vec3(0.3, 0.55, 0.15)))), smoothstep(t + 0.1 * sc, t + 1.5 * sc, h));
+  return vec4(alb * (uLook.x * 0.7 + uLook.y * diff) * mix(0.5, 1.0, crev) * dome * deep, m);
 }
 void main() {
   vec2 uv = vec2(gl_FragCoord.x / uRes.x, 1.0 - gl_FragCoord.y / uRes.y);
@@ -127,7 +129,9 @@ void main() {
   vec4 G = texture(uG0, uv);
   float hb = G.x;
   float ao = 1.0 - uBg.z * smoothstep(0.15, 2.2, hb);
-  vec3 col = scr * (1.0 - occ * uBg.y) * ao + uRoom * (1.0 - occ * 0.9) * ao;
+  vec2 rc = (uv - vec2(0.3, 0.12) - uL.xy * vec2(0.6, 0.4)) * vec2(1.0, uRes.y / uRes.x * 0.55);
+  float refl = 0.3 + 0.7 * exp(-dot(rc, rc) * 2.2) + 0.25 * smoothstep(0.06, 0.0, abs(dot(uv - vec2(0.75, 0.5), vec2(0.8, 0.6)) - 0.05 * uL.x));
+  vec3 col = scr * (1.0 - occ * uBg.y) * ao + uRoom * refl * (1.0 - occ * 0.85) * ao;
   if (hb > uFloor.y - 0.05) {
     vec2 gs = G.yz / max(1.0, length(G.yz));
     float hs = hb - sh.y * 16.0;
@@ -141,7 +145,7 @@ void main() {
       hs = mix(hs, max(hs, ar * 0.25), smoothstep(0.004, 0.04, sh.y));
     }
     vec4 f = sandFloor(uv * uWorld, normalize(vec3(-gs, 1.0)), hs);
-    col = mix(col, f.rgb * uFloor.w * (1.0 - occ * 0.5), f.a);
+    col = mix(col, f.rgb * (1.0 - occ * 0.5), f.a);
   }
   col = pow(max(col, 0.0), vec3(1.0 / 2.2));
   col += (hash12(gl_FragCoord.xy) - 0.5) / 255.0;
@@ -200,7 +204,8 @@ void main() {
   vAlb = g.col;
   float spin = (A.x * 0.37 - A.y * 0.29) / max(g.r, 0.05);
   vSeed = vec4(rnd(uid, 22u), rnd(uid, 23u), rnd(uid, 24u), rnd(uid, 25u) * 6.2831853 + spin * 0.15);
-  vLit = vec4(1.0 - sh * 0.7, ao, g.transl * (1.0 - smoothstep(0.25, 0.8, h)) * step(B.x, 0.0), g.sparkle);
+  float bounce = smoothstep(0.1, 0.6, dot(g.col, vec3(0.3, 0.55, 0.15)));
+  vLit = vec4(1.0 - sh * 0.7, mix(ao, 1.0, bounce * 0.5), g.transl * (1.0 - smoothstep(0.25, 0.8, h)) * step(B.x, 0.0), g.sparkle);
   vShape = vec4(size / (2.0 * rpx), g.kind, g.aspect, blur / max(rpx, 0.5));
   vScreenUv = vec2(uv.x, uv.y);
 }
@@ -280,7 +285,7 @@ void main() {
     vec3 nt = normalize(vec3((vSeed.xy - 0.5) * 0.5, 1.0));
     float topR = 0.3 + 0.35 * vSeed.y;
     vec3 nd = normalize(vec3(nq * 0.85, sqrt(1.0 - r2) + 0.25));
-    n = normalize(mix(mix(nt, nf, smoothstep(topR - 0.06, topR + 0.06, rho)), nd, 0.2));
+    n = normalize(mix(mix(nt, nf, smoothstep(topR - 0.1, topR + 0.1, rho)), nd, 0.35));
     alb *= 0.88 + 0.24 * vnoise(q * 1.7 + vSeed.zy * 19.0);
     spec = pow(max(dot(n, normalize(L + vec3(0.0, 0.0, 1.0))), 0.0), 30.0) * 0.05;
     vec3 facet = normalize(vec3((vSeed.yz - 0.5) * 0.9, 1.0));
@@ -295,13 +300,20 @@ void main() {
   float hemi = 0.5 + 0.5 * n.z;
   float rimOcc = mix(0.7, 1.0, smoothstep(0.05, 0.6, n.z));
   if (peb) rimOcc *= 0.55 + 0.45 * clamp(dot(n, L), 0.0, 1.0);
-  vec3 col = alb * (uLook.x * hemi * rimOcc + uLook.y * diff) * vLit.y;
+  else rimOcc *= 1.0 - 0.32 * smoothstep(0.6, 1.0, rho) * (1.0 - vLit.z);
+  float ms = clamp(dot(vMacro, L) / max(L.z, 0.3), 0.62, 1.45);
+  float bl = smoothstep(0.1, 0.6, dot(vAlb, vec3(0.3, 0.55, 0.15)));
+  ms = ms < 1.0 ? mix(ms, 1.0, bl * 0.6) : ms;
+  diff = mix(diff, max(dot(n, L), 0.0), bl * 0.5);
+  vec3 col = alb * (uLook.x * hemi * rimOcc + uLook.y * diff) * vLit.y * ms;
   col += vec3(spec * vLit.x * vLit.y) + vec3(1.0, 0.97, 0.92) * glint * vLit.x;
 
   vec3 scr = pow(texture(uScreen, vScreenUv).rgb, vec3(2.2)) * uScreenGain;
   col += scr * vAlb * vLit.z * (1.0 - smoothstep(0.35, 0.95, rho)) * 0.32 * uLook.w;
 
-  col = pow(max(col, 0.0), vec3(1.0 / 2.2));
+  col = max(col, 0.0);
+  col /= 1.0 + 0.9 * max(max(col.r, max(col.g, col.b)) - 0.55, 0.0);
+  col = pow(col, vec3(1.0 / 2.2));
   o = vec4(col, alpha);
 }
 `;
