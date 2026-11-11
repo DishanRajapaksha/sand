@@ -112,7 +112,7 @@ uniform sampler2D uG1;
 uniform int uTW;
 uniform vec2 uWorld;
 uniform float uDt;
-uniform vec3 uGrav;
+uniform vec4 uGrav;
 uniform vec4 uFA[5];
 uniform vec4 uFB[5];
 uniform uint uFrame;
@@ -156,9 +156,12 @@ void main() {
   float glue = g.kind == 0.0 ? min(pow(0.1 / g.r, 3.0), 6.0) * (1.0 - smoothstep(0.12, 0.17, g.r)) * (rnd(idx, 22u) < 0.45 ? 1.0 : 1.0 - contact) : 0.0;
   float adh = 9810.0 * glue;
 
-  if (zAir <= 0.0 && N + adh < -600.0) { zAir = 1e-3; vz = 0.0; }
+  float shake = smoothstep(1.5, 8.0, uGrav.w);
+  bool hang = zAir <= 0.0 && N + adh < -600.0;
+  if (hang && (shake > 0.85 || rnd3(idx, 26u, uFrame) < 1.0 - exp(-dt * mix(18.0, 5.0, contact)))) { zAir = 1e-3; vz = 0.0; hang = false; }
+  bool gb = zAir <= 0.0;
 
-  if (zAir > 0.0) {
+  if (!gb) {
     vz += -N * dt;
     zAir += vz * dt;
     v *= exp(-dt * 0.4);
@@ -168,10 +171,10 @@ void main() {
       float impact = max(-vz, 0.0);
       zAir = 0.0;
       vz = 0.0;
-      v = v * mix(0.35, 0.75, rnd3(idx, 12u, uFrame)) + rdir(idx, 13u) * impact * (peb ? 0.04 : 0.12) * rnd3(idx, 14u, uFrame);
+      v = v * mix(mix(0.35, 0.75, rnd3(idx, 12u, uFrame)), 0.15, contact) + rdir(idx, 13u) * impact * (peb ? 0.04 : mix(0.1, 0.015, contact)) * rnd3(idx, 14u, uFrame);
       layer = 0.75 + 0.25 * rnd(idx, 15u);
     }
-    if (zAir > 70.0 && vz > 0.0) { oB = vec4(zAir, vz, layer, 0.0); oA = vec4(p, v); return; }
+    if (zAir > 120.0 && vz > 0.0) { oB = vec4(zAir, vz, layer, 0.0); oA = vec4(p, v); return; }
   } else {
     float Ns = max(N, 5900.0);
     float sp0 = length(v);
@@ -179,14 +182,16 @@ void main() {
     if (sp0 < 0.8) mu *= 1.18;
     vec2 gr = grad * (peb ? 1.4 : 1.0);
     float gl = length(gr);
-    float se = max(gl - uFric.z * 0.45 * contact, 0.0);
+    float marg = uFric.z * 0.38 * contact;
+    float se = max(gl - marg * (1.0 - shake), 0.0);
     vec2 drive = gt - (gl > 1e-5 ? gr / gl : vec2(0.0)) * Ns * se * contact;
-    float pic = 1.0 - exp(-dt * 70.0 * contact * (peb ? 0.25 : 1.0));
+    float pic = 1.0 - exp(-dt * 70.0 * contact * (peb ? 0.25 : 1.0) * (1.0 - 0.8 * shake));
     v = mix(v, vg, pic);
-    v += drive * dt;
-    v *= exp(-dt * 45.0 * contact * min(se, 8.0));
+    v += drive * dt + rdir(idx, 28u) * uGrav.w * 1800.0 * shake * contact * rnd3(idx, 29u, uFrame) * dt;
+    v *= exp(-dt * 45.0 * contact * min(max(gl - marg, 0.0), 8.0));
     float sp = length(v);
-    float fr = mu * max(N + adh, 0.0) * dt;
+    float Nf = max(N, contact * 0.6 * length(gt) * (1.0 - smoothstep(2900.0, 6900.0, N)));
+    float fr = mu * max(Nf + adh, 0.0) * dt;
     if (sp <= fr) v = vec2(0.0);
     else v -= v / sp * fr;
     sp = length(v);
@@ -198,37 +203,49 @@ void main() {
     float vmax = 2500.0;
     sp = length(v);
     if (sp > vmax) v *= vmax / sp;
-    p += v * dt;
+    if (hang) v = vec2(0.0);
   }
 
   bool ignoreFinger = (g.kind == 0.0 && rnd(idx, 19u) < 0.012 && g.r < 0.22);
-  if (zAir < 3.0 && !ignoreFinger) {
+  vec2 q = p + (gb ? v * dt : vec2(0.0));
+  if (zAir < 3.0) {
+    float zg = clamp(max(h, G0.w), 0.0, 4.0) * (0.35 + 0.65 * layer);
     for (int f = 0; f < 5; f++) {
       vec4 fb = uFB[f];
       if (fb.w < 0.5) continue;
       vec4 fa = uFA[f];
       vec2 a = fa.xy, b = fa.zw;
       vec2 ab = b - a;
-      float t = clamp(dot(p - a, ab) / max(dot(ab, ab), 1e-6), 0.0, 1.0);
-      vec2 c = a + ab * t;
-      vec2 d = p - c;
-      float dist = length(d);
-      float R = fb.z + g.r * 0.6;
-      if (dist < R) {
-        vec2 n = dist > 1e-4 ? d / dist : rdir(idx, 20u);
-        p = c + n * (R + (R - dist > 0.15 ? 1.6 * rnd3(idx, 23u, uFrame) : 0.0));
-        vec2 U = fb.xy;
-        vec2 vrel = v - U;
-        float vn = dot(vrel, n);
-        if (vn < 0.0) v -= vn * n;
+      vec2 U = fb.xy;
+      float us = length(U);
+      float R = min(sqrt(fb.z * fb.z + 18.0 * zg), fb.z + 4.5) + g.r * 0.6;
+      vec2 c = a + ab * clamp(dot(q - a, ab) / max(dot(ab, ab), 1e-6), 0.0, 1.0);
+      float dist = length(q - c);
+      if (gb && us < 8.0 && dist < R + 0.3) {
+        v = U;
+        q = p + U * dt;
+        c = a + ab * clamp(dot(q - a, ab) / max(dot(ab, ab), 1e-6), 0.0, 1.0);
+        dist = length(q - c);
+      }
+      if (dist < R - (us < 8.0 ? 0.6 : 0.0) && !ignoreFinger) {
+        vec2 n = dist > 1e-4 ? (q - c) / dist : rdir(idx, 20u);
+        float pen = R - dist;
+        q = c + n * (R + (pen > 0.15 ? 1.6 * rnd3(idx, 23u, uFrame) : 0.0));
+        float vn = dot(v - U, n);
+        if (vn < 0.0) v -= vn * (1.0 + 0.6 * smoothstep(250.0, 2500.0, us)) * n;
         vec2 tng = vec2(-n.y, n.x);
         v -= dot(v - U, tng) * tng * 0.25;
-        v += n * length(U) * 0.08 * rnd3(idx, 21u, uFrame);
-        layer = mix(layer, 1.0, 0.2);
-        if (zAir > 0.0) { zAir = 0.0; vz = 0.0; }
+        v += n * us * 0.08 * rnd3(idx, 21u, uFrame);
+        if (us >= 8.0) layer = mix(layer, 1.0, 0.2);
+        if (us > 250.0 && pen > 0.05 && !peb) {
+          float k = rnd3(idx, 27u, uFrame);
+          zAir = 0.02;
+          vz = us * 0.2 * k * k;
+        } else if (zAir > 0.0) { zAir = 0.0; vz = 0.0; }
       }
     }
   }
+  p = q;
 
   float r = g.r;
   float rest = g.kind == 2.0 ? 0.35 : 0.08;

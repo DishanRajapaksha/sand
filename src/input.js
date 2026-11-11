@@ -13,6 +13,8 @@ export class Input {
     this.keys = new Set();
     this.override = null;
     this.up = [0, -0.35, 0.94];
+    this.slow = null;
+    this.shakeE = 0;
     this.onTouchStart = null;
     this.bindPointers();
     this.bindKeys();
@@ -23,8 +25,8 @@ export class Input {
     const pos = (e) => this.toLocal(e.clientX, e.clientY).map((c) => c * this.mmPerPx);
     const radius = (e) => {
       const w = Math.max(e.width || 0, e.height || 0);
-      if (e.pointerType === 'touch' && w > 4) return Math.min(7.5, Math.max(3.6, w * 0.5 * this.mmPerPx * 0.9));
-      return e.pointerType === 'touch' ? 4.6 : 4.2;
+      if (e.pointerType === 'touch' && w * this.mmPerPx > 3) return Math.min(7.5, Math.max(4.5, w * 0.5 * this.mmPerPx));
+      return 4.75;
     };
     el.addEventListener('pointerdown', (e) => {
       e.preventDefault();
@@ -43,7 +45,9 @@ export class Input {
     }, { passive: false });
     const end = (e) => {
       const ptr = this.pointers.get(e.pointerId);
-      if (ptr) ptr.ended = true;
+      if (!ptr) return;
+      if (e.type === 'pointerup') ptr.path.push(pos(e));
+      ptr.ended = true;
     };
     el.addEventListener('pointerup', end);
     el.addEventListener('pointercancel', end);
@@ -107,7 +111,12 @@ export class Input {
     const n = Math.hypot(f[0], f[1], f[2]) || 1;
     const a = 1 - Math.exp(-dt * 3);
     for (let i = 0; i < 3; i++) this.up[i] += (f[i] / n - this.up[i]) * a;
-    return [-f[0] * 1000, -f[1] * 1000, f[2] * 1000];
+    if (!this.slow) this.slow = f.slice();
+    const ks = 1 - Math.exp(-dt / 0.1);
+    let d2 = 0;
+    for (let i = 0; i < 3; i++) { this.slow[i] += (f[i] - this.slow[i]) * ks; d2 += (f[i] - this.slow[i]) ** 2; }
+    this.shakeE += (d2 - this.shakeE) * (1 - Math.exp(-dt / 0.6));
+    return [-f[0] * 1000, -f[1] * 1000, f[2] * 1000, Math.sqrt(this.shakeE)];
   }
 
   light() {
