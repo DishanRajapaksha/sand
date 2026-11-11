@@ -19,7 +19,7 @@ void main() {
   ivec2 pc = ivec2(id % uTW, id / uTW);
   vec4 A = texelFetch(uA, pc, 0);
   vec4 B = texelFetch(uB, pc, 0);
-  Grain g = grain(uint(id));
+  Grain g = grain(uint(id), B.z);
   if (B.w < 0.5 || B.w > 1.0001 || B.x > g.r) { gl_Position = vec4(2.0, 2.0, 2.0, 1.0); gl_PointSize = 0.0; return; }
   vec2 cell = uWorld / uGrid;
   vec2 gc = A.xy / cell;
@@ -132,12 +132,15 @@ void main() {
   oA = A; oB = B;
   if (B.w < 0.5) return;
   if (B.w > 1.0) { oB.w = max(1.0, B.w - uDt); return; }
-  Grain g = grain(idx);
+  Grain g = grain(idx, B.z);
   vec2 p = A.xy;
   vec2 v = A.zw;
   float zAir = B.x;
   float vz = B.y;
-  float layer = B.z;
+  float material = floor(B.z);
+  float layer = fract(B.z);
+  vec4 size = uSizes[int(material)];
+  vec4 fric = uFrics[int(material)];
   float N = uGrav.z;
   vec2 gt = uGrav.xy;
   vec2 uv = p / uWorld;
@@ -151,7 +154,7 @@ void main() {
   vec2 cs = uWorld / vec2(textureSize(uG0, 0));
   float rk = max(1.0, g.r * 1.3 / cs.x);
   float selfH = 4.18879 * g.r * g.r * g.r / (0.6 * cs.x * cs.y * rk * rk) * (0.172 + 0.85 * (rk - 1.0) / (rk + 0.9));
-  float contact = smoothstep(0.2, 0.8, max(h - selfH, 0.0) / max(2.0 * uSize.x, 0.05));
+  float contact = smoothstep(0.2, 0.8, max(h - selfH, 0.0) / max(2.0 * size.x, 0.05));
   bool peb = g.kind == 2.0;
   float glue = g.kind == 0.0 ? min(pow(0.1 / g.r, 3.0), 6.0) * (1.0 - smoothstep(0.12, 0.17, g.r)) * (rnd(idx, 22u) < 0.45 ? 1.0 : 1.0 - contact) : 0.0;
   float adh = 9810.0 * glue;
@@ -174,15 +177,15 @@ void main() {
       v = v * mix(mix(0.35, 0.75, rnd3(idx, 12u, uFrame)), 0.15, contact) + rdir(idx, 13u) * impact * (peb ? 0.04 : mix(0.1, 0.015, contact)) * rnd3(idx, 14u, uFrame);
       layer = 0.75 + 0.25 * rnd(idx, 15u);
     }
-    if (zAir > 120.0 && vz > 0.0) { oB = vec4(zAir, vz, layer, 0.0); oA = vec4(p, v); return; }
+    if (zAir > 120.0 && vz > 0.0) { oB = vec4(zAir, vz, material + min(layer, 0.999999), 0.0); oA = vec4(p, v); return; }
   } else {
     float Ns = max(N, 5900.0);
     float sp0 = length(v);
-    float mu = mix(g.mu, uFric.z * 0.85, contact * (peb ? 0.2 : 1.0));
+    float mu = mix(g.mu, fric.z * 0.85, contact * (peb ? 0.2 : 1.0));
     if (sp0 < 0.8) mu *= 1.18;
     vec2 gr = grad * (peb ? 1.4 : 1.0);
     float gl = length(gr);
-    float marg = uFric.z * 0.38 * contact;
+    float marg = fric.z * 0.38 * contact;
     float se = max(gl - marg * (1.0 - shake), 0.0);
     vec2 drive = gt - (gl > 1e-5 ? gr / gl : vec2(0.0)) * Ns * se * contact;
     float pic = 1.0 - exp(-dt * 70.0 * contact * (peb ? 0.25 : 1.0) * (1.0 - 0.8 * shake));
@@ -255,7 +258,7 @@ void main() {
   if (p.y > uWorld.y - r) { p.y = uWorld.y - r; if (v.y > 0.0) v.y = -v.y * rest; }
 
   oA = vec4(p, v);
-  oB = vec4(zAir, vz, clamp(layer, 0.0, 1.0), 1.0);
+  oB = vec4(zAir, vz, material + clamp(layer, 0.0, 0.999999), 1.0);
 }
 `;
 

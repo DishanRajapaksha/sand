@@ -5,9 +5,9 @@ import { Input } from '../src/input.js';
 import { JSDOM } from 'jsdom';
 
 // Capture the buffers uploaded by the real grain generator without requiring a GPU.
-function pour(options, count = 1024) {
+function pour(options, count = 1024, material = 0) {
   const uploads = [];
-  const sim = { world: [60, 100], count, TH: count / 512, state: [{ A: 1, B: 2 }, { A: 3, B: 4 }],
+  const sim = { material, world: [60, 100], count, TH: count / 512, state: [{ A: 1, B: 2 }, { A: 3, B: 4 }],
     gl: { bindTexture() {}, texSubImage2D(...args) { uploads.push(args.at(-1)); } } };
   SandSim.prototype.pour.call(sim, options);
   return { A: uploads[0], B: uploads[1] };
@@ -54,9 +54,27 @@ test('pointer strokes use the selected diameter and slider keys do not tilt sand
     input.fingerRadius = 10;
     canvas.dispatchEvent(new dom.window.MouseEvent('pointerdown', { clientX: 40, clientY: 50 }));
     assert.equal(input.fingers(1 / 60, 3)[0].subs[0].r, 10);
-    input.fingerRadius = 1;
-    assert.equal(input.fingers(1 / 60, 3)[0].subs[0].r, 1);
+    input.fingerRadius = .1;
+    assert.equal(input.fingers(1 / 60, 3)[0].subs[0].r, .1);
     dom.window.document.querySelector('input').dispatchEvent(new dom.window.KeyboardEvent('keydown', { key: 'ArrowRight', bubbles: true }));
     assert.equal(input.keys.size, 0);
   } finally { globalThis.window = oldWindow; dom.window.close(); }
+});
+
+
+test('successive pours retain the original sand types while adding different materials', () => {
+  let mixture = pour({ seed: 3, intro: false }, 1024, 0);
+  for (let material = 1; material < 5; material++) {
+    const previous = mixture;
+    const count = 1024 + material * 512;
+    mixture = pour({ seed: material + 3, existing: previous, intro: true }, count, material);
+    for (let i = 0; i < previous.B.length; i++) assert.equal(mixture.B[i], previous.B[i]);
+    for (let i = previous.B.length / 4; i < count; i++) {
+      assert.equal(Math.floor(mixture.B[i * 4 + 2]), material);
+      assert(mixture.B[i * 4 + 3] > 1);
+    }
+  }
+  const types = new Set();
+  for (let i = 2; i < mixture.B.length; i += 4) types.add(Math.floor(mixture.B[i]));
+  assert.equal(types.size, 5);
 });

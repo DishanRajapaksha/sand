@@ -38,7 +38,7 @@ let gl, sim, renderer, input, audio;
 let presetKey = PRESETS[params.get('sand')] ? params.get('sand') : (PRESETS[store.get('preset')] ? store.get('preset') : 'river');
 let screenKey = SCREENS[params.get('screen')] ? params.get('screen') : (SCREENS[store.get('screen')] ? store.get('screen') : 'light');
 const savedFingerSize = Number(store.get('fingerSize', 9.5));
-let fingerSize = Number.isFinite(savedFingerSize) ? Math.max(2, Math.min(30, savedFingerSize)) : 9.5;
+let fingerSize = Number.isFinite(savedFingerSize) ? Math.max(0.2, Math.min(30, savedFingerSize)) : 9.5;
 let soundOn = store.get('sound', true) !== false;
 let hapticsOn = store.get('haptics', true) !== false;
 let dpr = 1;
@@ -169,6 +169,7 @@ function addSand() {
   const target = Math.min(budget * 2, live + TWfloor(budget / 4));
   if (target <= live) { toast('The pit is full. Draw or spill some sand before adding more.'); return; }
   if (target > sim.count) replacing(sim, () => sim.resize(...sim.world, target));
+  sim.setPreset(PRESETS[presetKey]);
   sim.pour({ seed: seed++, intro: true, amount: target / sim.count, existing });
   applyQuality();
   introT = INTRO;
@@ -477,7 +478,8 @@ function buildMenu() {
       b.innerHTML = `<i></i><span>${PRESETS[k].name}</span>`;
       b.onclick = () => {
         presetKey = k; store.set('preset', k); sync();
-        if (started) { resetWorld(true); closeMenu(); }
+        // Select what the next pour adds, leaving the current mixture untouched.
+        if (started) $('addSand').textContent = `Add ${PRESETS[k].name.toLowerCase()} sand`;
       };
       el.appendChild(b);
     }
@@ -518,6 +520,7 @@ function buildMenu() {
   };
   size.oninput = syncSize;
   syncSize();
+  $('addSand').textContent = `Add ${PRESETS[presetKey].name.toLowerCase()} sand`;
   $('addSand').onclick = addSand;
   $('fillPit').onclick = () => { resetWorld(false, 1, true); closeMenu(); };
   $('pour').onclick = () => { resetWorld(true); closeMenu(); };

@@ -1,6 +1,7 @@
 import { program, texture, framebuffer, setUniforms, bindTex } from './gl.js';
 import * as S from './render-shaders.js';
 import { TW } from './sim.js';
+import { PRESETS, PRESET_ORDER } from './presets.js';
 
 export class Renderer {
   constructor(gl) {
@@ -88,7 +89,20 @@ export class Renderer {
     gl.depthMask(false);
     const look = this.look;
     const bgp = this.progs.bg;
-    const fs = Math.pow(sim.preset.size[0] / 0.19, 3);
+    const counts = sim.materialCounts;
+    const total = Math.max(1, counts.reduce((a, b) => a + b, 0));
+    const mean = [0, 0, 0];
+    let size = 0, cumulative = 0;
+    const mix = new Float32Array(20);
+    PRESET_ORDER.forEach((key, i) => {
+      const weight = counts[i] / total;
+      size += PRESETS[key].size[0] * weight;
+      this.paletteMean(PRESETS[key].palette).forEach((v, c) => { mean[c] += v * weight; });
+      cumulative += weight;
+      mix[i * 4] = cumulative;
+    });
+    size ||= sim.preset.size[0];
+    const fs = Math.pow(size / 0.19, 3);
     gl.useProgram(bgp.p);
     bindTex(gl, bgp, 'uScreen', this.screenTex, 0);
     bindTex(gl, bgp, 'uShadow', this.shadowTex[0], 1);
@@ -99,8 +113,9 @@ export class Renderer {
       uBg: [look.screenGain, look.shadowK, look.aoK, 0],
       uRoom: look.room,
       uLook: [look.amb, look.key, look.sparkle, look.transl],
-      uPm: this.paletteMean(sim.preset.palette),
-      uFloor: [1.6 * sim.preset.size[0], look.floor[0] * fs, look.floor[1] * fs, look.floor[2]],
+      uMix: { type: 'v4a', v: mix },
+      uPm: mean,
+      uFloor: [1.6 * size, look.floor[0] * fs, look.floor[1] * fs, look.floor[2]],
     });
     gl.drawArrays(gl.TRIANGLES, 0, 3);
 

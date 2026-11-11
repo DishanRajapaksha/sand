@@ -10,7 +10,7 @@ uniform vec2 uWorld;
 uniform vec3 uL;
 
 float grainHeight(Grain g, vec4 B, float h, out float zTop) {
-  float layer = B.z;
+  float layer = fract(B.z);
   float zc = g.r + layer * max(h - 2.0 * g.r, 0.0);
   if (g.kind == 2.0) zc = max(zc, g.r * 0.8 + h * 0.6);
   zTop = zc + g.r;
@@ -30,7 +30,7 @@ void main() {
   vec4 A = texelFetch(uA, pc, 0);
   vec4 B = texelFetch(uB, pc, 0);
   if (B.w < 0.5 || B.w > 1.0001) { gl_Position = vec4(2.0, 2.0, 2.0, 1.0); gl_PointSize = 0.0; return; }
-  Grain g = grain(uint(id));
+  Grain g = grain(uint(id), B.z);
   float h = texture(uG0, A.xy / uWorld).x;
   float zTop;
   float zc = grainHeight(g, B, h, zTop);
@@ -95,6 +95,7 @@ uniform vec4 uBg;
 uniform vec3 uRoom;
 uniform vec4 uFloor;
 uniform vec3 uPm;
+uniform vec4 uMix[5];
 out vec4 o;
 vec3 toLin(vec3 c) { return pow(c, vec3(2.2)); }
 float hash12(vec2 p) { vec3 p3 = fract(vec3(p.xyx) * 0.1031); p3 += dot(p3, p3.yzx + 33.33); return fract((p3.x + p3.y) * p3.z); }
@@ -112,7 +113,9 @@ vec4 sandFloor(vec2 wp, vec3 n, float h) {
       if (d < d1) { d2 = d1; d1 = d; c1 = c; dv = p - f; } else if (d < d2) d2 = d;
     }
   uint id = uint(int(c1.x) + 8192) + uint(int(c1.y) + 8192) * 16384u + 2654435769u;
-  vec3 alb = pickColor(rnd(id, 5u)) * (0.72 + 0.56 * rnd(id, 6u));
+  int material = 4;
+  for (int k = 4; k >= 0; k--) if (rnd(id, 24u) <= uMix[k].x) material = k;
+  vec3 alb = pickColor(rnd(id, 5u), material) * (0.72 + 0.56 * rnd(id, 6u));
   float t = mix(uFloor.y, uFloor.z, rnd(id, 7u));
   float sc = uFloor.x / 0.304;
   float rad = mix(0.45, 1.3, smoothstep(t + 0.1 * sc, t + 0.9 * sc, h));
@@ -180,7 +183,7 @@ void main() {
   vec4 A = texelFetch(uA, pc, 0);
   vec4 B = texelFetch(uB, pc, 0);
   if (B.w < 0.5 || B.w > 1.0001) { gl_Position = vec4(2.0, 2.0, 2.0, 1.0); gl_PointSize = 0.0; return; }
-  Grain g = grain(uid);
+  Grain g = grain(uid, B.z);
   vec2 uv = A.xy / uWorld;
   vec4 G0 = texture(uG0, uv);
   float h = G0.x;

@@ -1,5 +1,14 @@
 import { program, texture, framebuffer, setUniforms, bindTex } from './gl.js';
 import * as S from './sim-shaders.js';
+import { PRESETS, PRESET_ORDER } from './presets.js';
+
+const MATERIALS = PRESET_ORDER.map((key) => PRESETS[key]);
+const MATERIAL_UNIFORMS = {
+  uPal: { type: 'v4a', v: new Float32Array(MATERIALS.flatMap((p) => [...p.palette])) },
+  uSizes: { type: 'v4a', v: new Float32Array(MATERIALS.flatMap((p) => p.size)) },
+  uSize2s: { type: 'v4a', v: new Float32Array(MATERIALS.flatMap((p) => p.size2)) },
+  uFrics: { type: 'v4a', v: new Float32Array(MATERIALS.flatMap((p) => p.fric)) },
+};
 
 export const TW = 512;
 const CELL = 0.5;
@@ -88,17 +97,18 @@ export class SandSim {
 
   setPreset(p) {
     this.preset = p;
+    this.material = Math.max(0, MATERIALS.indexOf(p));
   }
 
   presetUniforms() {
-    const p = this.preset;
-    return { uPal: { type: 'v4a', v: p.palette }, uSize: p.size, uSize2: p.size2, uFric: p.fric };
+    return MATERIAL_UNIFORMS;
   }
 
   pour({ seed = 1, intro = true, amount = 1, full = false, existing = null } = {}) {
     const gl = this.gl;
     const [W, H] = this.world;
     const rand = mulberry(seed * 7919 + 13);
+    const material = this.material || 0;
     const noise = makeNoise(rand);
     const DW = 96, DH = Math.round(96 * H / W);
     const dens = new Float32Array(DW * DH);
@@ -185,10 +195,14 @@ export class SandSim {
         A[i * 4] = x - A[i * 4 + 2] * tf;
         A[i * 4 + 1] = y - A[i * 4 + 3] * tf;
         const delay = 0.05 + POUR * best / (PS - 1) + 0.18 * rand() + Math.sqrt(bd) * 0.012;
-        B.set([z, vz0, rand(), 1 + delay], i * 4);
+        B.set([z, vz0, material + rand() * 0.999999, 1 + delay], i * 4);
       } else {
-        B.set([0, 0, rand(), 1], i * 4);
+        B.set([0, 0, material + rand() * 0.999999, 1], i * 4);
       }
+    }
+    this.materialCounts = new Array(MATERIALS.length).fill(0);
+    for (let i = 0; i < n; i++) {
+      if (B[i * 4 + 3] >= 0.5) this.materialCounts[Math.floor(B[i * 4 + 2])]++;
     }
     for (const s of this.state) {
       gl.bindTexture(gl.TEXTURE_2D, s.A);

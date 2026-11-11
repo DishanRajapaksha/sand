@@ -5,10 +5,10 @@ precision highp sampler2D;
 `;
 
 export const COMMON = `
-uniform vec4 uPal[8];
-uniform vec4 uSize;
-uniform vec4 uSize2;
-uniform vec4 uFric;
+uniform vec4 uPal[40];
+uniform vec4 uSizes[5];
+uniform vec4 uSize2s[5];
+uniform vec4 uFrics[5];
 uniform vec4 uLook;
 
 uint pcg(uint v) {
@@ -29,31 +29,36 @@ struct Grain {
   float aspect;
 };
 
-vec3 pickColor(float u) {
-  vec3 c = uPal[7].rgb;
-  for (int k = 7; k >= 0; k--) { if (u <= uPal[k].a) c = uPal[k].rgb; }
+vec3 pickColor(float u, int material) {
+  vec3 c = uPal[material * 8 + 7].rgb;
+  for (int k = 7; k >= 0; k--) { if (u <= uPal[material * 8 + k].a) c = uPal[material * 8 + k].rgb; }
   return c;
 }
 
-Grain grain(uint i) {
+// The integer part of B.z is the immutable sand type; the fraction is depth.
+Grain grain(uint i, float materialLayer) {
+  int material = clamp(int(floor(materialLayer)), 0, 4);
+  vec4 size = uSizes[material];
+  vec4 size2 = uSize2s[material];
+  vec4 fric = uFrics[material];
   Grain g;
   float u = rnd(i, 0u);
   float gs = sqrt(-2.0 * log(max(rnd(i, 1u), 1e-6))) * cos(6.2831853 * rnd(i, 2u));
-  if (u < uSize.w) {
+  if (u < size.w) {
     g.kind = 2.0;
-    g.r = mix(uSize2.x, uSize2.y, pow(rnd(i, 3u), 2.2));
+    g.r = mix(size2.x, size2.y, pow(rnd(i, 3u), 2.2));
     g.mu = rnd(i, 23u) < 0.6 ? mix(0.1, 0.22, rnd(i, 4u)) : mix(0.3, 0.5, rnd(i, 4u));
-  } else if (u < uSize.w + uSize.z) {
+  } else if (u < size.w + size.z) {
     g.kind = 1.0;
-    g.r = mix(uSize2.z, uSize2.w, pow(rnd(i, 3u), 1.5));
-    g.mu = rnd(i, 23u) < 0.35 ? mix(uFric.x * 0.6, uFric.x * 1.2, rnd(i, 4u)) : mix(uFric.x * 1.6, uFric.y, rnd(i, 4u)) * 0.85;
+    g.r = mix(size2.z, size2.w, pow(rnd(i, 3u), 1.5));
+    g.mu = rnd(i, 23u) < 0.35 ? mix(fric.x * 0.6, fric.x * 1.2, rnd(i, 4u)) : mix(fric.x * 1.6, fric.y, rnd(i, 4u)) * 0.85;
   } else {
     g.kind = 0.0;
-    g.r = clamp(uSize.x * exp(uSize.y * gs), 0.045, 0.42);
-    g.mu = rnd(i, 23u) < 0.25 ? mix(uFric.x * 0.6, uFric.x * 1.2, rnd(i, 4u)) : mix(uFric.x * 1.6, uFric.y, rnd(i, 4u));
+    g.r = clamp(size.x * exp(size.y * gs), 0.045, 0.42);
+    g.mu = rnd(i, 23u) < 0.25 ? mix(fric.x * 0.6, fric.x * 1.2, rnd(i, 4u)) : mix(fric.x * 1.6, fric.y, rnd(i, 4u));
   }
   float cu = rnd(i, 5u);
-  vec3 c = pickColor(cu);
+  vec3 c = pickColor(cu, material);
   float bright = 0.78 + 0.44 * rnd(i, 6u);
   vec3 tint = vec3(1.0) + (vec3(rnd(i, 7u), rnd(i, 8u), rnd(i, 9u)) - 0.5) * 0.1;
   g.col = c * bright * tint;
@@ -63,7 +68,7 @@ Grain grain(uint i) {
     g.col = mix(st * bright, g.col * 0.8, 0.3);
   }
   float lum = dot(g.col, vec3(0.3, 0.55, 0.15));
-  g.sparkle = step(0.7, rnd(i, 10u)) * smoothstep(0.08, 0.35, lum) * uFric.w;
+  g.sparkle = step(0.7, rnd(i, 10u)) * smoothstep(0.08, 0.35, lum) * fric.w;
   g.transl = smoothstep(0.12, 0.6, lum) * (g.kind == 2.0 ? 0.15 : 0.6);
   g.aspect = mix(0.7, 1.0, rnd(i, 11u));
   return g;
